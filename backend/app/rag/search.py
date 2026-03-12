@@ -40,10 +40,12 @@ class KnowledgeSearch:
         query: str,
         top_k: int | None = None,
         threshold: float | None = None,
+        namespace: str | None = None,
     ) -> list[KBChunk]:
         """Search knowledge base by semantic similarity.
 
         Returns list of KBChunk sorted by relevance (highest first).
+        If namespace is provided, only chunks with that namespace are searched.
         """
         if not self.client or not has_pool():
             return []
@@ -62,17 +64,31 @@ class KnowledgeSearch:
                 if conn is None:
                     return []
                 with conn.cursor() as cur:
-                    cur.execute(
-                        """
-                        SELECT content, section, source,
-                               1 - (embedding <=> %s::vector) AS similarity
-                        FROM knowledge_chunks
-                        WHERE 1 - (embedding <=> %s::vector) > %s
-                        ORDER BY embedding <=> %s::vector
-                        LIMIT %s
-                        """,
-                        (str(embedding), str(embedding), threshold, str(embedding), top_k),
-                    )
+                    if namespace:
+                        cur.execute(
+                            """
+                            SELECT content, section, source,
+                                   1 - (embedding <=> %s::vector) AS similarity
+                            FROM knowledge_chunks
+                            WHERE 1 - (embedding <=> %s::vector) > %s
+                              AND namespace = %s
+                            ORDER BY embedding <=> %s::vector
+                            LIMIT %s
+                            """,
+                            (str(embedding), str(embedding), threshold, namespace, str(embedding), top_k),
+                        )
+                    else:
+                        cur.execute(
+                            """
+                            SELECT content, section, source,
+                                   1 - (embedding <=> %s::vector) AS similarity
+                            FROM knowledge_chunks
+                            WHERE 1 - (embedding <=> %s::vector) > %s
+                            ORDER BY embedding <=> %s::vector
+                            LIMIT %s
+                            """,
+                            (str(embedding), str(embedding), threshold, str(embedding), top_k),
+                        )
                     rows = cur.fetchall()
 
             return [
@@ -98,6 +114,7 @@ def search_knowledge_base(
     query: str,
     top_k: int | None = None,
     threshold: float | None = None,
+    namespace: str | None = None,
 ) -> list[KBChunk]:
     """Convenience function: search KB with singleton instance."""
-    return _get_searcher().search(query, top_k=top_k, threshold=threshold)
+    return _get_searcher().search(query, top_k=top_k, threshold=threshold, namespace=namespace)

@@ -8,7 +8,7 @@ from typing import Any
 
 from openai import OpenAI
 
-from app.agent.prompt import SYSTEM_PROMPT
+from app.agent.prompt import get_system_prompt
 from app.config import get_settings
 from app.models.chat import ActorContext, ChatMessage
 
@@ -72,7 +72,12 @@ class LLMService:
                 parts.append(f"- Сумма: {deal['amount']} руб.")
         return "\n".join(parts)
 
-    def _fallback_text(self) -> str:
+    def _fallback_text(self, role: str = "sales") -> str:
+        if role == "support":
+            return (
+                "Секунду, есть техническая пауза с генерацией ответа. "
+                "Я уже продолжаю работу. Можете повторить вопрос или уточнить, чем могу помочь."
+            )
         return (
             "Секунду, есть техническая пауза с генерацией ответа. "
             "Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует."
@@ -87,6 +92,7 @@ class LLMService:
         history: list[ChatMessage],
         crm_context: dict | None = None,
         tool_executor: Any | None = None,
+        profile_context: str | None = None,
     ) -> Generator[LLMChunk | ToolCallEvent, None, LLMResult]:
         """
         Stream LLM answer with function calling support.
@@ -94,6 +100,8 @@ class LLMService:
         Yields LLMChunk for text tokens and ToolCallEvent for tool executions.
         Returns LLMResult when complete.
         """
+        agent_role = actor.agent_role.value if hasattr(actor.agent_role, "value") else str(actor.agent_role)
+
         if self.client is None:
             fallback = (
                 "Я Эврика. Сейчас OpenAI не подключен в окружении, "
@@ -103,13 +111,17 @@ class LLMService:
                 yield LLMChunk(token=ch)
             return LLMResult(text=fallback, usage_tokens=None)
 
-        from app.agent.tools import TOOL_DEFINITIONS
+        from app.agent.tools import get_tool_definitions
+
+        tool_defs = get_tool_definitions(agent_role)
 
         # Build initial messages
         messages: list[dict[str, Any]] = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": get_system_prompt(agent_role)},
             {"role": "system", "content": self._identity_context(actor)},
         ]
+        if profile_context:
+            messages.append({"role": "system", "content": profile_context})
         crm_ctx_str = self._crm_context(crm_context)
         if crm_ctx_str:
             messages.append({"role": "system", "content": crm_ctx_str})
@@ -131,7 +143,7 @@ class LLMService:
                     "timeout": self.settings.openai_request_timeout_seconds,
                 }
                 if tool_executor:
-                    create_kwargs["tools"] = TOOL_DEFINITIONS
+                    create_kwargs["tools"] = tool_defs
 
                 stream = self.client.chat.completions.create(**create_kwargs)
 
@@ -230,7 +242,7 @@ class LLMService:
 
                 # Edge case: no text and no tool calls
                 if not full_text:
-                    fallback = self._fallback_text()
+                    fallback = self._fallback_text(agent_role)
                     for ch in fallback:
                         yield LLMChunk(token=ch)
                     return LLMResult(text=fallback, usage_tokens=total_tokens)
@@ -247,7 +259,7 @@ class LLMService:
 
             except Exception:
                 logger.exception("LLM streaming error on iteration %d", iteration)
-                fallback = self._fallback_text()
+                fallback = self._fallback_text(agent_role)
                 for ch in fallback:
                     yield LLMChunk(token=ch)
                 return LLMResult(text=fallback, usage_tokens=None)

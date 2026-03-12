@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import re
@@ -19,10 +20,21 @@ logger = logging.getLogger(__name__)
 # --- Section-to-source mapping ---------------------------------------------------
 
 _SOURCE_MAP: dict[str, str] = {
+    # H1 titles
+    "База знаний ИИ-агента": "general",
+    "ЧАСТО ЗАДАВАЕМЫЕ ВОПРОСЫ": "faq",
+    "Тариф Базовый": "products",
+    "Тариф Классный": "products",
+    "Тариф Выпускник": "products",
+    "Тариф Персональный": "products",
+    "Тариф Заочный": "products",
+    # H2 sections
     "О КОМПАНИИ": "company",
+    "О компании": "company",
     "КЛЮЧЕВЫЕ ЦИФРЫ": "company",
     "ПРОДУКТОВАЯ ЛИНЕЙКА": "products",
     "Пакет": "products",
+    "НАШИ ПАКЕТЫ И ЦЕНЫ": "products",
     "Сравнительная таблица": "products",
     "АТТЕСТАЦИЯ": "attestation",
     "EDPALM DUBAI": "products",
@@ -33,17 +45,36 @@ _SOURCE_MAP: dict[str, str] = {
     "СЕМЕЙНОЕ ОБРАЗОВАНИЕ": "education",
     "БОЛИ КЛИЕНТОВ": "objections",
     "ВОЗРАЖЕНИЯ И ОТВЕТЫ": "objections",
+    "ТИПОВЫЕ ВОЗРАЖЕНИЯ": "objections",
+    "ЧАСТЫЕ СОМНЕНИЯ": "objections",
     "КАК НАЧАТЬ ОБУЧЕНИЕ": "process",
     "ОПЛАТА": "payments",
+    "РАССРОЧКА": "payments",
     "ТЕХНИЧЕСКАЯ ПЛАТФОРМА": "education",
     "КЛЮЧЕВЫЕ УТП": "sales",
+    "преимущества": "sales",
     "ЮРИДИЧЕСКИЕ ВОПРОСЫ": "faq",
     "КОНТАКТЫ И КАНАЛЫ": "contacts",
+    "СВЯЗАТЬСЯ С МЕНЕДЖЕРОМ": "contacts",
     "СОБЫТИЯ И СООБЩЕСТВО": "company",
     "ЧЕКЛИСТ КВАЛИФИКАЦИИ": "sales",
     "ЧЕКЛИСТ ОНБОРДИНГА": "process",
     "ШАБЛОНЫ КОММУНИКАЦИЙ": "sales",
     "ССЫЛКИ-СПРАВОЧНИК": "contacts",
+    "ПРОГРАММА И ФОРМАТ": "education",
+    "ПОСТУПЛЕНИЕ И ЗАЧИСЛЕНИЕ": "process",
+    "ПРОЖИВАНИЕ И ГРАЖДАНСТВО": "faq",
+    "СРОКИ ПОКУПКИ": "process",
+    "ЧТО МОЖНО ОБЕЩАТЬ": "sales",
+    "ДОКУМЕНТЫ": "process",
+    # H3 sections
+    "Финансовые инструменты": "payments",
+    "Ценообразование": "products",
+    "Логика": "sales",
+    "Для кого этот тариф": "products",
+    "Целевая аудитория": "products",
+    # H4 sections
+    "Линейка": "products",
 }
 
 
@@ -65,9 +96,9 @@ class Section:
 
 
 def parse_markdown(text: str) -> list[Section]:
-    """Split markdown into sections by ## and ### headings.
+    """Split markdown into sections by #, ##, ### and #### headings.
 
-    ### sections inherit source from their parent ## heading.
+    Sub-headings inherit source from their nearest parent heading.
     """
     lines = text.split("\n")
     sections: list[Section] = []
@@ -77,14 +108,14 @@ def parse_markdown(text: str) -> list[Section]:
     parent_h2_heading = "Введение"
 
     for line in lines:
-        match = re.match(r"^(#{2,3})\s+(.+)", line)
+        match = re.match(r"^(#{1,4})\s+(.+)", line)
         if match:
             # Save previous section
             body = "\n".join(current_lines).strip()
             if body:
-                # For ### headings, try own source first; fall back to parent ## source
+                # For sub-headings, try own source first; fall back to parent heading source
                 source = _resolve_source(current_heading)
-                if source == "general" and current_level == 3:
+                if source == "general" and current_level >= 3:
                     source = _resolve_source(parent_h2_heading)
                 sections.append(Section(
                     heading=current_heading,
@@ -94,7 +125,7 @@ def parse_markdown(text: str) -> list[Section]:
                 ))
             current_heading = match.group(2).strip()
             current_level = len(match.group(1))
-            if current_level == 2:
+            if current_level <= 2:
                 parent_h2_heading = current_heading
             current_lines = []
         else:
@@ -104,7 +135,7 @@ def parse_markdown(text: str) -> list[Section]:
     body = "\n".join(current_lines).strip()
     if body:
         source = _resolve_source(current_heading)
-        if source == "general" and current_level == 3:
+        if source == "general" and current_level >= 3:
             source = _resolve_source(parent_h2_heading)
         sections.append(Section(
             heading=current_heading,
@@ -126,6 +157,7 @@ class Chunk:
     content: str
     metadata: dict = field(default_factory=dict)
     file_source: str = ""
+    namespace: str = "sales"
 
 
 def chunk_sections(
@@ -196,18 +228,18 @@ def embed_texts(texts: list[str], client: OpenAI, model: str, batch_size: int = 
 
 # --- Database storage ------------------------------------------------------------
 
-def store_chunks(chunks: list[Chunk], embeddings: list[list[float]], database_url: str) -> int:
-    """Truncate old data and insert new chunks with embeddings."""
+def store_chunks(chunks: list[Chunk], embeddings: list[list[float]], database_url: str, namespace: str = "sales") -> int:
+    """Delete old data for the given namespace and insert new chunks with embeddings."""
     with psycopg.connect(database_url) as conn:
         with conn.cursor() as cur:
-            cur.execute("TRUNCATE knowledge_chunks")
+            cur.execute("DELETE FROM knowledge_chunks WHERE namespace = %s", (namespace,))
 
             for chunk, emb in zip(chunks, embeddings):
                 meta = {**chunk.metadata, "file_source": chunk.file_source}
                 cur.execute(
                     """
-                    INSERT INTO knowledge_chunks (source, section, chunk_index, content, metadata, embedding)
-                    VALUES (%s, %s, %s, %s, %s::jsonb, %s::vector)
+                    INSERT INTO knowledge_chunks (source, section, chunk_index, content, metadata, embedding, namespace)
+                    VALUES (%s, %s, %s, %s, %s::jsonb, %s::vector, %s)
                     """,
                     (
                         chunk.source,
@@ -216,6 +248,7 @@ def store_chunks(chunks: list[Chunk], embeddings: list[list[float]], database_ur
                         chunk.content,
                         json.dumps(meta),
                         str(emb),
+                        namespace,
                     ),
                 )
         conn.commit()
@@ -225,6 +258,21 @@ def store_chunks(chunks: list[Chunk], embeddings: list[list[float]], database_ur
 # --- CLI entry point -------------------------------------------------------------
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Load knowledge base into pgvector")
+    parser.add_argument(
+        "--namespace",
+        default="sales",
+        choices=["sales", "support"],
+        help="Namespace for knowledge chunks (default: sales)",
+    )
+    parser.add_argument(
+        "--dir",
+        default=None,
+        help="Path to knowledge base directory (default: auto-detect)",
+    )
+    args = parser.parse_args()
+    namespace: str = args.namespace
+
     settings = get_settings()
 
     if not settings.openai_api_key:
@@ -234,12 +282,16 @@ def main() -> None:
         print("ERROR: DATABASE_URL not set in .env")
         sys.exit(1)
 
-    # Find knowledge_base/ directory relative to project root
-    project_root = Path(__file__).resolve().parents[3]
-    kb_dir = project_root / "knowledge_base"
+    # Find knowledge_base/ directory
+    if args.dir:
+        kb_dir = Path(args.dir)
+    else:
+        project_root = Path(__file__).resolve().parents[3]
+        kb_dir = project_root / "knowledge_base"
 
     # Fallback to single file for backward compatibility
     if not kb_dir.exists():
+        project_root = Path(__file__).resolve().parents[3]
         kb_file = project_root / "knowledge_base.md"
         if not kb_file.exists():
             print(f"ERROR: Neither {kb_dir} nor {kb_file} found")
@@ -251,6 +303,7 @@ def main() -> None:
             print(f"ERROR: No .md files found in {kb_dir}")
             sys.exit(1)
 
+    print(f"Namespace: {namespace}")
     print(f"Found {len(kb_files)} knowledge base file(s)")
 
     # Parse → chunk all files
@@ -263,6 +316,8 @@ def main() -> None:
         print(f"  Sections: {len(sections)}")
 
         chunks = chunk_sections(sections, file_source=kb_path.name)
+        for chunk in chunks:
+            chunk.namespace = namespace
         print(f"  Chunks: {len(chunks)}")
         all_chunks.extend(chunks)
 
@@ -276,8 +331,8 @@ def main() -> None:
     print(f"Embeddings generated: {len(embeddings)}")
 
     # Store
-    count = store_chunks(all_chunks, embeddings, settings.database_url)
-    print(f"Stored in DB: {count} chunks")
+    count = store_chunks(all_chunks, embeddings, settings.database_url, namespace=namespace)
+    print(f"Stored in DB: {count} chunks (namespace={namespace})")
     print("Done.")
 
 

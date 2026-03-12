@@ -5,6 +5,11 @@ function getQueryParam(name) {
   return params.get(name)
 }
 
+export function getAgentRole() {
+  const role = getQueryParam('role')
+  return role === 'support' ? 'support' : 'sales'
+}
+
 export function buildAuthPayload() {
   const portalToken = getQueryParam('token')
   const externalToken = getQueryParam('t')

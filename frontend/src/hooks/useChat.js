@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
-import { fetchMessages, startConversation, streamChat, streamVoice } from '../api/client'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { fetchMessages, startConversation, streamChat } from '../api/client'
 
-const STORAGE_KEY = 'eurika_conversation_id'
+function getStorageKey(agentRole) {
+  return `eurika_conversation_id_${agentRole}`
+}
 
-export function useChat(auth) {
+export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
   const [messages, setMessages] = useState([])
   const [conversationId, setConversationId] = useState('')
   const [typing, setTyping] = useState(false)
@@ -11,24 +13,26 @@ export function useChat(auth) {
   const [started, setStarted] = useState(false)
   const [escalated, setEscalated] = useState(false)
   const [escalationReason, setEscalationReason] = useState('')
+  const abortRef = useRef(null)
 
   useEffect(() => {
-    if (!auth || started) return
+    if (!auth || started || !onboardingComplete) return
     let canceled = false
 
     ;(async () => {
       try {
-        const savedConvId = sessionStorage.getItem(STORAGE_KEY)
-        const data = await startConversation(auth, savedConvId)
+        const storageKey = getStorageKey(agentRole)
+        const savedConvId = sessionStorage.getItem(storageKey)
+        const data = await startConversation(auth, savedConvId, agentRole)
         if (canceled) return
 
         setConversationId(data.conversation_id)
-        sessionStorage.setItem(STORAGE_KEY, data.conversation_id)
+        sessionStorage.setItem(storageKey, data.conversation_id)
 
         // Try to restore message history if we resumed a conversation
         if (savedConvId && data.conversation_id === savedConvId) {
           try {
-            const historyData = await fetchMessages(savedConvId)
+            const historyData = await fetchMessages(savedConvId, auth)
             if (!canceled && historyData.messages && historyData.messages.length > 0) {
               setMessages(
                 historyData.messages
@@ -67,7 +71,17 @@ export function useChat(auth) {
     return () => {
       canceled = true
     }
-  }, [auth, started])
+  }, [auth, started, agentRole, onboardingComplete])
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) {
+        abortRef.current.abort()
+        abortRef.current = null
+      }
+    }
+  }, [])
 
   async function sendMessage(text) {
     if (!text.trim() || !auth || !conversationId || typing || escalated) return
@@ -79,15 +93,22 @@ export function useChat(auth) {
     setTyping(true)
     setError('')
 
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    const storageKey = getStorageKey(agentRole)
+
     try {
       await streamChat({
         auth,
         conversationId,
         message: text,
+        agentRole,
+        signal: controller.signal,
         onEvent: (event, payload) => {
           if (event === 'meta' && payload.conversation_id && payload.conversation_id !== conversationId) {
             setConversationId(payload.conversation_id)
-            sessionStorage.setItem(STORAGE_KEY, payload.conversation_id)
+            sessionStorage.setItem(storageKey, payload.conversation_id)
           }
 
           if (event === 'token') {
@@ -109,6 +130,7 @@ export function useChat(auth) {
         },
       })
     } catch (e) {
+      if (e.name === 'AbortError') return
       setTyping(false)
       // Mark partial response if tokens were received before error
       setMessages((prev) =>
@@ -122,79 +144,13 @@ export function useChat(auth) {
         ? 'Сервер не ответил вовремя. Попробуйте ещё раз.'
         : e.message
       setError(userMsg)
-    }
-  }
-
-  async function sendVoiceMessage(audioBlob) {
-    if (!auth || !conversationId || typing || escalated) return
-
-    const assistantId = crypto.randomUUID()
-
-    setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', content: '' }])
-    setTyping(true)
-    setError('')
-
-    try {
-      let userMsgAdded = false
-      await streamVoice({
-        auth,
-        conversationId,
-        audioBlob,
-        onEvent: (event, payload) => {
-          if (event === 'meta') {
-            if (payload.conversation_id && payload.conversation_id !== conversationId) {
-              setConversationId(payload.conversation_id)
-              sessionStorage.setItem(STORAGE_KEY, payload.conversation_id)
-            }
-            if (payload.transcript && !userMsgAdded) {
-              userMsgAdded = true
-              const userMsg = { id: crypto.randomUUID(), role: 'user', content: payload.transcript }
-              setMessages((prev) => {
-                const idx = prev.findIndex((m) => m.id === assistantId)
-                if (idx === -1) return [...prev, userMsg]
-                const copy = [...prev]
-                copy.splice(idx, 0, userMsg)
-                return copy
-              })
-            }
-          }
-
-          if (event === 'token') {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId ? { ...m, content: `${m.content}${payload.text || ''}` } : m,
-              ),
-            )
-          }
-
-          if (event === 'escalation') {
-            setEscalated(true)
-            setEscalationReason(payload.reason || '')
-          }
-
-          if (event === 'done') {
-            setTyping(false)
-          }
-        },
-      })
-    } catch (e) {
-      setTyping(false)
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId && m.content
-            ? { ...m, content: `${m.content}\n\n_(ответ неполный)_` }
-            : m,
-        ),
-      )
-      const userMsg = e.message === 'SSE_TIMEOUT'
-        ? 'Сервер не ответил вовремя. Попробуйте ещё раз.'
-        : e.message
-      setError(userMsg)
+    } finally {
+      abortRef.current = null
     }
   }
 
   return useMemo(
-    () => ({ messages, sendMessage, sendVoiceMessage, typing, error, started, escalated, escalationReason }),
+    () => ({ messages, sendMessage, typing, error, started, escalated, escalationReason }),
     [messages, typing, error, started, escalated, escalationReason],
   )
 }

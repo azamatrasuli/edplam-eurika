@@ -1,59 +1,67 @@
-# AI Agent Seller - Sprint 1 MVP
+# Эврика — ИИ-агент EdPalm
 
-Реализация спринта 1 из `dev_plan.md`:
-- React Chat UI (streaming)
-- FastAPI backend + OpenAI GPT-4o
-- 3 режима входа (portal JWT / Telegram initData / external signed token)
-- Сохранение диалогов и сообщений в PostgreSQL/Supabase
+Три роли в одной платформе:
+- **Продавец** — виртуальный менеджер по продажам
+- **Поддержка** — менеджер клиентского сервиса
+- **Учитель** — виртуальный учитель для учеников
+
+Стек: React 19 + Python FastAPI + OpenAI GPT-4o + pgvector RAG
 
 ## Структура
 
-- `frontend/` - SPA чат
-- `backend/` - FastAPI API
-- `backend/sql/001_init_sprint1.sql` - миграция таблиц
+```
+eurika/
+├── backend/               # Python FastAPI
+├── frontend/              # React SPA
+├── seller_staff/          # Роль: Продавец (TZ + база знаний)
+├── support_staff/         # Роль: Поддержка (TZ + база знаний)
+├── teacher_staff/         # Роль: Учитель (TZ)
+└── PRD.md                 # Обзор продукта
+```
 
 ## Быстрый старт
 
-### 1. Backend
+### Backend
 
 ```bash
-cd ai_agent_eurika/saller/backend
+cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
-uvicorn app.main:app --reload --port 8009
+cp .env.example .env          # заполнить ключи
+PYTHONPATH=. .venv/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8009 --reload
 ```
 
-### 2. DB миграция
-
-Примените SQL из `backend/sql/001_init_sprint1.sql` в Supabase/PostgreSQL.
-
-### 3. Frontend
+### Frontend
 
 ```bash
-cd ai_agent_eurika/saller/frontend
+cd frontend
 npm install
 cp .env.example .env
-npm run dev
+npm run dev                    # http://localhost:5177
 ```
 
-Откройте:
-- портал режим: `http://localhost:5177/?token=<jwt>`
-- external режим: `http://localhost:5177/?t=<signed-token>`
-- telegram режим: внутри Telegram Mini App
+### DB миграции
+
+Применить SQL из `backend/sql/` в Supabase/PostgreSQL (файлы 001–006).
+
+### Загрузка базы знаний (RAG)
+
+```bash
+cd backend
+PYTHONPATH=. python -m app.rag.loader --namespace sales --dir ../seller_staff/knowledge_base/
+PYTHONPATH=. python -m app.rag.loader --namespace support --dir ../support_staff/knowledge_base/
+```
+
+## Режимы входа
+
+- **Портал:** `http://localhost:5177/?token=<jwt>`
+- **Telegram Mini App:** внутри бота `miniapp_edpalm_bot`
+- **Внешняя ссылка:** `http://localhost:5177/?t=<signed-token>`
 
 ## Проверка
 
-Backend health:
-
 ```bash
 curl -sS http://127.0.0.1:8009/health
-```
-
-Smoke tests:
-
-```bash
-cd ai_agent_eurika/saller/backend
-pytest -q
+cd backend && pytest -q
 ```

@@ -13,6 +13,11 @@ class Channel(str, Enum):
     external = "external"
 
 
+class AgentRole(str, Enum):
+    sales = "sales"
+    support = "support"
+
+
 class AuthPayload(BaseModel):
     portal_token: str | None = None
     telegram_init_data: str | None = None
@@ -25,11 +30,13 @@ class ActorContext(BaseModel):
     display_name: str | None = None
     phone: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    agent_role: AgentRole = AgentRole.sales
 
 
 class StartConversationRequest(BaseModel):
     auth: AuthPayload
     conversation_id: str | None = None
+    agent_role: AgentRole = AgentRole.sales
 
 
 class StartConversationResponse(BaseModel):
@@ -42,6 +49,7 @@ class ChatStreamRequest(BaseModel):
     auth: AuthPayload
     conversation_id: str | None = None
     message: str = Field(min_length=1, max_length=4000)
+    agent_role: AgentRole = AgentRole.sales
 
 
 class ChatMessage(BaseModel):

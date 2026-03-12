@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from contextlib import asynccontextmanager
 from time import perf_counter
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.chat import router as chat_router
+from app.api.onboarding import router as onboarding_router
 from app.config import get_settings
 from app.db.pool import close_pool, init_pool
 
@@ -45,8 +49,10 @@ async def with_request_id(request: Request, call_next):
 
 
 @app.exception_handler(Exception)
-async def unhandled_exc_handler(_: Request, exc: Exception):
-    return JSONResponse(status_code=500, content={"error": "internal_error", "detail": str(exc)})
+async def unhandled_exc_handler(request: Request, exc: Exception):
+    logger = logging.getLogger("app")
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"error": "internal_error", "detail": "Внутренняя ошибка сервера"})
 
 
 @app.get("/health")
@@ -55,3 +61,4 @@ def health():
 
 
 app.include_router(chat_router)
+app.include_router(onboarding_router)

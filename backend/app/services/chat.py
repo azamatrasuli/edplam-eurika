@@ -4,10 +4,12 @@ import logging
 from dataclasses import dataclass
 
 from app.agent.prompt import PROMPT_VERSION
+from app.config import get_settings
 from app.db.repository import ConversationRepository, StoredConversation
 from app.integrations.amocrm import AmoCRMClient
-from app.models.chat import ActorContext, Channel, ChatMessage
+from app.models.chat import ActorContext, AgentRole, Channel, ChatMessage
 from app.services.llm import LLMService
+from app.services.onboarding import OnboardingService
 
 logger = logging.getLogger("chat")
 
@@ -24,6 +26,7 @@ class ChatService:
         self.repo = ConversationRepository()
         self.llm = LLMService()
         self.crm = AmoCRMClient()
+        self.onboarding = OnboardingService()
 
     def ensure_conversation(self, actor: ActorContext, conversation_id: str | None) -> StreamContext:
         conv = self.repo.start_or_resume_conversation(actor, conversation_id)
@@ -33,18 +36,34 @@ class ChatService:
     def generate_greeting(self, actor: ActorContext, conversation_id: str) -> str:
         """Generate a personalized greeting and save it as the first assistant message."""
         name = actor.display_name.strip() if actor.display_name else None
-        if name:
-            greeting = (
-                f"Здравствуйте, {name}! Я Эврика, виртуальный менеджер EdPalm. "
-                "Помогу подобрать программу обучения и отвечу на ваши вопросы. "
-                "Расскажите, что вас интересует?"
-            )
+        is_support = actor.agent_role == AgentRole.support
+
+        if is_support:
+            if name:
+                greeting = (
+                    f"Здравствуйте, {name}! Я Эврика, служба поддержки EdPalm. "
+                    "Помогу с вопросами по платформе, документам и оплате. "
+                    "Чем могу помочь?"
+                )
+            else:
+                greeting = (
+                    "Здравствуйте! Я Эврика, служба поддержки EdPalm. "
+                    "Помогу с вопросами по платформе, документам и оплате. "
+                    "Чем могу помочь?"
+                )
         else:
-            greeting = (
-                "Здравствуйте! Я Эврика, виртуальный менеджер EdPalm. "
-                "Помогу подобрать программу обучения и отвечу на ваши вопросы. "
-                "Расскажите, что вас интересует?"
-            )
+            if name:
+                greeting = (
+                    f"Здравствуйте, {name}! Я Эврика, виртуальный менеджер EdPalm. "
+                    "Помогу подобрать программу обучения и отвечу на ваши вопросы. "
+                    "Расскажите, что вас интересует?"
+                )
+            else:
+                greeting = (
+                    "Здравствуйте! Я Эврика, виртуальный менеджер EdPalm. "
+                    "Помогу подобрать программу обучения и отвечу на ваши вопросы. "
+                    "Расскажите, что вас интересует?"
+                )
         self.save_assistant_message(conversation_id, greeting, usage_tokens=None)
         return greeting
 
@@ -71,7 +90,10 @@ class ChatService:
                 return None
 
         # Found contact — check for active deal
-        lead = self.crm.find_active_lead(contact_id)
+        pipeline_id = None
+        if actor.agent_role == AgentRole.support:
+            pipeline_id = get_settings().amocrm_service_pipeline_id
+        lead = self.crm.find_active_lead(contact_id, pipeline_id=pipeline_id)
         return {
             "contact_id": contact_id,
             "contact_name": contact_name,
@@ -121,17 +143,25 @@ class ChatService:
     ):
         from app.agent.tools import ToolExecutor
 
+        agent_role = actor.agent_role.value if hasattr(actor.agent_role, "value") else str(actor.agent_role)
         tool_executor = ToolExecutor(
             amocrm_client=self.crm,
             actor_id=actor.actor_id,
             conversation_id=conversation_id,
+            agent_role=agent_role,
+            repo=self.repo,
         )
+
+        # Load onboarding profile context for LLM
+        profile_context = self.onboarding.get_profile_context_for_llm(actor.actor_id)
+
         return self.llm.stream_answer(
             user_text=user_text,
             actor=actor,
             history=history,
             crm_context=crm_context,
             tool_executor=tool_executor,
+            profile_context=profile_context or None,
         )
 
     def get_messages(self, conversation_id: str) -> list[ChatMessage]:

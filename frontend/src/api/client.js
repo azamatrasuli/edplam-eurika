@@ -1,7 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8009'
 
-export async function startConversation(auth, conversationId = null) {
-  const body = { auth }
+export async function startConversation(auth, conversationId = null, agentRole = 'sales') {
+  const body = { auth, agent_role: agentRole }
   if (conversationId) body.conversation_id = conversationId
   const response = await fetch(`${API_BASE_URL}/api/v1/conversations/start`, {
     method: 'POST',
@@ -14,8 +14,12 @@ export async function startConversation(auth, conversationId = null) {
   return response.json()
 }
 
-export async function fetchMessages(conversationId) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/messages`)
+export async function fetchMessages(conversationId, auth) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(auth),
+  })
   if (!response.ok) {
     throw new Error(`Failed to fetch messages (${response.status})`)
   }
@@ -36,8 +40,13 @@ function parseSSE(buffer, onEvent) {
       if (line.startsWith('data: ')) dataLine = line.slice(6)
     }
 
-    const payload = JSON.parse(dataLine)
-    onEvent(event, payload)
+    try {
+      const payload = JSON.parse(dataLine)
+      onEvent(event, payload)
+    } catch {
+      // Malformed SSE data — skip this event
+      console.warn('Failed to parse SSE data:', dataLine)
+    }
     boundary = buffer.indexOf('\n\n')
   }
   return buffer
@@ -61,11 +70,12 @@ async function readSSEStream(response, onEvent) {
   }
 }
 
-export async function streamChat({ auth, conversationId, message, onEvent }) {
+export async function streamChat({ auth, conversationId, message, agentRole = 'sales', onEvent, signal }) {
   const response = await fetch(`${API_BASE_URL}/api/v1/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ auth, conversation_id: conversationId, message }),
+    body: JSON.stringify({ auth, conversation_id: conversationId, message, agent_role: agentRole }),
+    signal,
   })
 
   if (!response.ok || !response.body) {
@@ -75,17 +85,50 @@ export async function streamChat({ auth, conversationId, message, onEvent }) {
   await readSSEStream(response, onEvent)
 }
 
-export async function streamVoice({ auth, conversationId, audioBlob, onEvent }) {
+export async function transcribeAudio(audioBlob) {
+  const formData = new FormData()
+  formData.append('audio', audioBlob, 'voice.webm')
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/transcribe`, {
+    method: 'POST',
+    body: formData,
+  })
+  if (!response.ok) throw new Error(`Transcription failed (${response.status})`)
+  return (await response.json()).transcript
+}
+
+export async function checkProfile(auth) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/profile/check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ auth }),
+  })
+  if (!response.ok) throw new Error(`Profile check failed (${response.status})`)
+  return response.json()
+}
+
+export async function verifyOnboarding(auth, data) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/onboarding/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ auth, ...data }),
+  })
+  if (!response.ok) throw new Error(`Onboarding verify failed (${response.status})`)
+  return response.json()
+}
+
+export async function streamVoice({ auth, conversationId, audioBlob, agentRole = 'sales', onEvent, signal }) {
   const formData = new FormData()
   formData.append('audio', audioBlob, 'voice.webm')
   formData.append('auth_json', JSON.stringify(auth))
   if (conversationId) {
     formData.append('conversation_id', conversationId)
   }
+  formData.append('agent_role', agentRole)
 
   const response = await fetch(`${API_BASE_URL}/api/v1/chat/voice`, {
     method: 'POST',
     body: formData,
+    signal,
   })
 
   if (!response.ok || !response.body) {

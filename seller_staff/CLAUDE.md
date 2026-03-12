@@ -1,160 +1,115 @@
-# CLAUDE.md — AI Agent: Sales (EdPalm)
+# CLAUDE.md — ИИ-агент Продавец Эврика
 
-> Context for Claude when working in this directory.
-> Full project context: /edpalm/CLAUDE.md
-> Full PRD: /edpalm/ai_agent_eurika/saller/PRD.md
-
----
-
-## What we're building
-
-A standalone AI sales agent for EdPalm online school (grades 1–11).
-Looks and feels like ChatGPT. Works as: portal widget, Telegram Mini App, or standalone link.
-
-**Stack:** React 19 (frontend) + Python FastAPI (backend) + OpenAI GPT-4o + pgvector RAG
+> Контекст для Claude при работе в этой директории.
+> Полный контекст проекта: /edpalm/eurika/CLAUDE.md
 
 ---
 
-## Repository structure (to be created)
+## Что мы строим
+
+ИИ-агент — виртуальный менеджер по продажам EdPalm (1–11 классы).
+Выглядит как ChatGPT. Работает как: виджет на портале, Telegram Mini App, или по внешней ссылке.
+
+**Стек:** React 19 (frontend) + Python FastAPI (backend) + OpenAI GPT-4o + pgvector RAG
+
+**Главный документ:** `TZ.md`
+
+---
+
+## Структура
 
 ```
-saller/
-├── CLAUDE.md           # this file
-├── PRD.md              # product requirements
-├── brief.md            # original client brief
-├── frontend/           # React chat UI (standalone SPA)
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── ChatWindow.jsx
-│   │   │   ├── MessageInput.jsx
-│   │   │   ├── TypingIndicator.jsx
-│   │   │   ├── PaymentCard.jsx
-│   │   │   └── EscalationBanner.jsx
-│   │   ├── hooks/
-│   │   ├── api/
-│   │   └── main.jsx
-│   ├── package.json
-│   └── vite.config.js
-├── backend/            # Python FastAPI AI agent
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── api/        # route handlers
-│   │   ├── agent/      # LLM logic, tools, prompts
-│   │   ├── rag/        # pgvector search, embeddings
-│   │   ├── integrations/
-│   │   │   ├── amocrm.py
-│   │   │   ├── dms.py
-│   │   │   └── lms.py
-│   │   ├── auth/       # JWT, Telegram initData, URL tokens
-│   │   └── models/     # Pydantic schemas
-│   ├── requirements.txt
-│   └── .env.example
-└── knowledge_base/     # raw docs for RAG (PDFs, MD files)
+seller_staff/
+├── CLAUDE.md                 # этот файл
+├── TZ.md                     # техническое задание (сценарии, спринты, интеграции)
+└── knowledge_base/           # файлы для RAG (pgvector)
+    ├── 01_company.md         # О компании, ключевые цифры
+    ├── 02_products.md        # Продуктовая линейка 2026-2027 с ценами
+    ├── 03_attestation.md     # Аттестация, Dubai, партнёры
+    ├── 04_sales_scripts.md   # Боли, возражения, УТП, чеклисты
+    ├── 05_enrollment.md      # Поступление, оплата, документы
+    ├── 06_faq.md             # Юридические и частые вопросы
+    ├── 07_education.md       # Учебный процесс, платформа, СО
+    └── 08_contacts.md        # Контакты, ссылки-справочник
 ```
 
----
-
-## Agent identity
-
-- **Name:** Эврика
-- **Role:** Sales manager at EdPalm
-- **Tone with parents:** respectful, expert, warm — no slang, no over-formality
-- **Tone with teens (9–11):** friendly, modern, can use emoji
-- **Hard rules:** never invent discounts, prices, or teacher names not in knowledge base
+Код бэкенда и фронтенда — в `/edpalm/eurika/backend/` и `/edpalm/eurika/frontend/`.
 
 ---
 
-## Agent tools (OpenAI function calling)
+## Идентичность агента
 
-| Tool | Description |
-|---|---|
-| `search_knowledge_base` | RAG search over EdPalm product docs |
-| `get_client_profile` | Fetch client data from DMS by user_id or phone |
-| `get_student_progress` | Fetch student grades/status via DMS API (DMS wraps Moodle internally) |
-| `get_amocrm_deal` | Read active deal from amoCRM |
-| `create_amocrm_lead` | Create contact + deal in amoCRM |
-| `update_deal_stage` | Move deal to next stage in amoCRM |
-| `generate_payment_link` | Call DMS API → return payment URL |
-| `escalate_to_manager` | Flag conversation for human takeover + notify via Telegram |
-| `schedule_followup` | Schedule a follow-up message (24h / 48h / 7d) |
+- **Имя:** Эврика
+- **Роль:** Менеджер по продажам EdPalm
+- **Тон с родителями:** уважительно, экспертно, тепло. Без канцелярита и панибратства. На «вы»
+- **Тон со старшеклассниками (9–11):** дружелюбно, живо, эмодзи уместны
+- **Жёсткие правила:** не придумывать скидки, цены, имена учителей не из базы знаний
 
 ---
 
-## Auth — three entry modes
+## Инструменты агента (function calling)
 
-| Mode | How it works |
-|---|---|
-| Portal | PHP portal issues short-lived JWT → passed as `?token=` → backend verifies |
-| Telegram Mini App | `initData` HMAC-SHA256 verified with BOT_TOKEN → user matched by telegram_id |
-| External link | Signed one-time URL token (TTL 48h) → treated as new lead if no match |
-
----
-
-## Key integrations
-
-**amoCRM**
-- Subdomain: `azaprimemat`
-- Sales pipeline: `10490514` / Service pipeline: `10490518`
-- Credentials: see `/amocrm_edpalm_bot/.env.development`
-
-**Supabase (PostgreSQL)**
-- Used for: conversation history, session state, RAG vectors, scheduled follow-ups
-- URL: `https://phleydwqqjevlyfydlbf.supabase.co`
-- Credentials: see `/amocrm_edpalm_bot/.env.development`
-
-**DMS API** — Go backend, source code studied (`/dms-main`). REST API on port 8080.
-- Auth: `POST /v1/api/auth` → JWT (access 10min + refresh). Agent uses a service account.
-- Client lookup: `POST /v1/api/contacts/search` — by phone or email
-- Create order: `POST /v1/api/orders`
-- Payment link: `POST /v1/api/payment/link` — Tochka Bank (already integrated in DMS)
-- Payment confirm: `POST /v1/api/payment/confirm` — triggered by webhook
-- Student progress: available via DMS (Moodle is wrapped inside DMS — no direct Moodle calls needed)
-
-**LMS (Moodle)** — accessed through DMS, not directly. No separate integration needed.
+| Инструмент | Статус | Описание |
+|---|---|---|
+| `search_knowledge_base` | Готов | RAG-поиск по продуктам EdPalm |
+| `get_amocrm_contact` | Готов | Найти контакт по телефону или telegram_id |
+| `get_amocrm_deal` | Готов | Получить активную сделку |
+| `create_amocrm_lead` | Готов | Создать контакт + сделку в amoCRM |
+| `update_deal_stage` | Готов | Обновить статус сделки |
+| `escalate_to_manager` | Готов | Передать диалог менеджеру + уведомление в Telegram |
+| `get_client_profile` | Блокер (DMS) | Профиль клиента из DMS |
+| `generate_payment_link` | Блокер (DMS) | Платёжная ссылка через DMS API |
+| `schedule_followup` | Спринт 4 | Напоминания 24ч / 48ч / 7д |
 
 ---
 
-## Sales scenarios
+## Сценарии продаж
 
-1. **New lead** — qualify → match product → handle objections → payment link → follow-up
-2. **Renewal** — triggered by CRM event → NPS → present next period → payment link → follow-up
-3. **Cross-sell / Upsell** — detect fit → pitch add-on product → payment link
+1. **Новый клиент** — квалификация → подбор продукта → возражения → оплата → follow-up
+2. **Пролонгация** — триггер из CRM → NPS → предложение → оплата → follow-up
+3. **Кросс-сейл** — органичное предложение доп.продуктов в ходе диалога
 
-**Escalation triggers:** client asks for human / negative sentiment / unknown question / price not in KB
+**Эскалация:** негатив, просьба о человеке, нет ответа в KB, скидка не из KB, 3 follow-up без ответа
 
 ---
 
-## Conversation storage (Supabase)
+## Ключевые интеграции
 
-```sql
-conversations (id, user_id, channel, started_at, status, amocrm_deal_id)
-messages (id, conversation_id, role, content, tool_calls, created_at)
-followups (id, conversation_id, scheduled_at, sent, message_template)
+| Система | Описание | Статус |
+|---|---|---|
+| amoCRM | Контакты, сделки, примечания. Pipeline sales: `10490514` | Готов (402 блокер на запись) |
+| DMS | Go-бэкенд: профиль клиента, заказы, платёжные ссылки | Блокер: нет credentials |
+| LMS (Moodle) | Через DMS API, не напрямую | — |
+| Supabase | PostgreSQL: conversations, chat_messages, knowledge_chunks, amocrm_tokens | Готов |
+| Telegram | Mini App для клиентов + уведомления менеджерам | Готов |
+
+---
+
+## Спринты
+
+| Спринт | Даты | Фокус | Статус |
+|---|---|---|---|
+| 1 | 09.03 – 16.03 | Основа: чат, auth, GPT-4o, БД | Done |
+| 2 | 16.03 – 23.03 | RAG, база знаний, guardrails, голос | Done |
+| 3 | 23.03 – 03.04 | amoCRM, DMS, платежи, эскалация | Done |
+| 4 | 06.04 – 13.04 | Все 3 сценария + follow-up | Следующий |
+| 5 | 13.04 – 20.04 | Дашборд + встройка в портал | — |
+| 6 | 20.04 – 30.04 | Тестирование на реальных клиентах | — |
+
+---
+
+## Загрузка базы знаний (RAG)
+
+```bash
+# Из eurika/backend/:
+PYTHONPATH=. python -m app.rag.loader --namespace sales --dir ../seller_staff/knowledge_base/
 ```
 
 ---
 
-## Sprint plan
+## Блокеры
 
-| Sprint | Goal |
+| Блокер | Спринт |
 |---|---|
-| 1 | FastAPI skeleton + React Chat UI + SSE streaming + Auth |
-| 2 | RAG pipeline + knowledge base loader + system prompt |
-| 3 | amoCRM + DMS payments + escalation |
-| 4 | All 3 sales scenarios + follow-up scheduler |
-| 5 | Dashboard + portal embed |
-| 6 | Closed pilot deploy |
-
----
-
-## Deploy
-
-- **Backend:** VPS (server provided by client)
-- **Frontend:** Vercel (free tier)
-
-## Blockers
-
-| Blocker | Sprint |
-|---|---|
-| **Knowledge base content** — product texts, FAQ, objection scripts | Sprint 2 |
-| **DMS credentials** — service account login/password for the agent | Sprint 3 |
+| **amoCRM подписка (402)** — аккаунт заблокирован, только GET работает | Sprint 3 |
+| **DMS credentials** — нет учётки для агента | Sprint 3-4 |

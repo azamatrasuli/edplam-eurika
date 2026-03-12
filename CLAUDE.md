@@ -1,169 +1,157 @@
-# CLAUDE.md — AI Agent: Eurika (EdPalm)
+# CLAUDE.md — ИИ-агент Эврика (EdPalm)
 
-> Context for Claude when working in this directory.
-> Full project context: /edpalm/CLAUDE.md
-> Full PRD: /edpalm/eurika/PRD.md
-
----
-
-## What we're building
-
-A standalone AI sales agent for EdPalm online school (grades 1-11).
-Looks and feels like ChatGPT. Works as: portal widget, Telegram Mini App, or standalone link.
-
-**Stack:** React 19 (frontend) + Python FastAPI (backend) + OpenAI GPT-4o + pgvector RAG
+> Контекст для Claude при работе в этой директории.
+> Полный контекст проекта: /edpalm/CLAUDE.md
 
 ---
 
-## Repository structure
+## Что мы строим
+
+ИИ-агент Эврика — три роли в одной платформе:
+1. **Продавец** — виртуальный менеджер по продажам
+2. **Поддержка** — менеджер клиентского сервиса
+3. **Учитель** — виртуальный учитель для учеников
+
+Выглядит как ChatGPT. Работает на портале, в Telegram Mini App и по внешней ссылке.
+
+**Стек:** React 19 (frontend) + Python FastAPI (backend) + OpenAI GPT-4o + pgvector RAG
+
+---
+
+## Структура репозитория
 
 ```
 eurika/
-├── CLAUDE.md           # this file
-├── PRD.md              # product requirements
-├── brief.md            # original client brief
-├── frontend/           # React chat UI (standalone SPA)
+├── CLAUDE.md              # этот файл
+├── PRD.md                 # обзор продукта (все 3 роли)
+├── frontend/              # React SPA (общий для всех ролей)
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── ChatWindow.jsx
-│   │   │   ├── MessageInput.jsx
-│   │   │   ├── TypingIndicator.jsx
-│   │   │   ├── PaymentCard.jsx
-│   │   │   └── EscalationBanner.jsx
-│   │   ├── hooks/
-│   │   ├── api/
-│   │   └── main.jsx
-│   ├── package.json
-│   └── vite.config.js
-├── backend/            # Python FastAPI AI agent
+│   │   ├── components/    # ChatWindow, MessageInput, VoiceRecorder, etc.
+│   │   ├── hooks/         # useChat.js, useOnboarding.js
+│   │   ├── api/           # client.js
+│   │   └── lib/           # authContext.js
+│   └── package.json
+├── backend/               # Python FastAPI (общий для всех ролей)
 │   ├── app/
 │   │   ├── main.py
-│   │   ├── api/        # route handlers (chat.py, health.py)
-│   │   ├── agent/      # LLM logic, tools, prompts
-│   │   │   ├── prompt.py
-│   │   │   └── tools.py
-│   │   ├── rag/        # pgvector search, embeddings
-│   │   ├── services/   # chat.py, llm.py
-│   │   ├── integrations/
-│   │   │   └── amocrm.py
-│   │   ├── auth/       # JWT, Telegram initData, URL tokens
-│   │   ├── db/         # pool.py, repository.py
-│   │   └── models/     # Pydantic schemas
-│   ├── sql/            # DB migrations
-│   │   ├── 001_init_sprint1.sql
-│   │   ├── 002_rag_sprint2.sql
-│   │   └── 003_integrations_sprint3.sql
-│   ├── tests/
+│   │   ├── api/           # chat.py, onboarding.py
+│   │   ├── agent/         # prompt.py, tools.py
+│   │   ├── rag/           # search.py, loader.py
+│   │   ├── services/      # chat.py, llm.py, onboarding.py
+│   │   ├── integrations/  # amocrm.py, amocrm_chat.py, dms.py
+│   │   ├── auth/          # portal.py, telegram.py, external.py
+│   │   ├── db/            # pool.py, repository.py
+│   │   └── models/        # chat.py, onboarding.py
+│   ├── sql/               # 001-006 миграции
 │   ├── requirements.txt
 │   └── .env.example
-└── knowledge_base/     # raw docs for RAG (MD files)
+├── seller_staff/          # Роль: Продавец
+│   ├── CLAUDE.md          # контекст роли
+│   ├── TZ.md              # техническое задание
+│   └── knowledge_base/    # 8 MD файлов для RAG (namespace: sales)
+├── support_staff/         # Роль: Поддержка
+│   ├── CLAUDE.md          # контекст роли
+│   ├── TZ.md              # техническое задание
+│   └── knowledge_base/    # MD файлы для RAG (namespace: support)
+└── teacher_staff/         # Роль: Учитель
+    ├── CLAUDE.md          # контекст роли
+    ├── TZ.md              # техническое задание
+    └── knowledge_base/    # (будущее)
 ```
 
 ---
 
-## Agent identity
+## Аутентификация (три режима)
 
-- **Name:** Эврика
-- **Role:** Sales manager at EdPalm
-- **Tone with parents:** respectful, expert, warm — no slang, no over-formality
-- **Tone with teens (9-11):** friendly, modern, can use emoji
-- **Hard rules:** never invent discounts, prices, or teacher names not in knowledge base
-
----
-
-## Agent tools (OpenAI function calling)
-
-| Tool | Status | Description |
-|---|---|---|
-| `search_knowledge_base` | Done (Sprint 2-3) | RAG search over EdPalm product docs |
-| `get_amocrm_contact` | Done (Sprint 3) | Find contact in amoCRM by phone or telegram_id |
-| `get_amocrm_deal` | Done (Sprint 3) | Get active deal for a contact |
-| `create_amocrm_lead` | Done (Sprint 3) | Create contact + deal in amoCRM |
-| `update_deal_stage` | Done (Sprint 3) | Update deal status/product/amount in amoCRM |
-| `escalate_to_manager` | Done (Sprint 3) | Flag conversation for human takeover + notify via Telegram |
-| `get_client_profile` | Blocked (DMS) | Fetch client data from DMS |
-| `generate_payment_link` | Blocked (DMS) | Call DMS API -> return payment URL |
-| `schedule_followup` | Sprint 4 | Schedule a follow-up message (24h / 48h / 7d) |
-
----
-
-## Auth — three entry modes
-
-| Mode | How it works |
+| Режим | Как работает |
 |---|---|
-| Portal | PHP portal issues short-lived JWT -> passed as `?token=` -> backend verifies |
-| Telegram Mini App | `initData` HMAC-SHA256 verified with BOT_TOKEN -> user matched by telegram_id |
-| External link | Signed one-time URL token (TTL 48h) -> treated as new lead if no match |
+| Portal | PHP портал выдаёт JWT (TTL 15 мин) → `?token=` → бэкенд верифицирует |
+| Telegram Mini App | `initData` HMAC-SHA256 с BOT_TOKEN → пользователь по telegram_id |
+| Внешняя ссылка | Подписанный одноразовый токен (TTL 48ч) → новый лид |
 
 ---
 
-## Key integrations
+## Ключевые интеграции
 
-**amoCRM** (Done - Sprint 3)
+**amoCRM** (Sprint 3, код готов)
 - Subdomain: `azaprimemat`
 - Sales pipeline: `10490514` / Service pipeline: `10490518`
 - Custom fields: Telegram ID `1396311`, Product `1396313`, Amount `1396315`
-- OAuth tokens stored in `amocrm_tokens` table (shared with Node.js TG bot)
-- Redirect URI: `https://edpalm-unified-tg-bot.onrender.com/api/amocrm/webhook/...`
+- OAuth токены в `amocrm_tokens` (shared с TG ботом)
 
-**Supabase (PostgreSQL)** — shared between AI Agent and Node.js TG Bot
+**Supabase (PostgreSQL)** — shared между AI Agent и Node.js TG Bot
 - Project: `qieftukvzjpcnakimxmo`
-- Region: ap-southeast-1 (AWS)
-- AI Agent tables: `conversations`, `chat_messages`, `knowledge_chunks`, `agent_contact_mapping`, `agent_deal_mapping`
-- Shared table: `amocrm_tokens`
-- Bot tables: `contacts`, `deals`, `messages`, `amocrm_contact_mapping`, `amocrm_deal_mapping`, etc.
+- AI Agent таблицы: `conversations`, `chat_messages`, `knowledge_chunks`, `agent_contact_mapping`, `agent_deal_mapping`, `agent_user_profiles`
+- Shared: `amocrm_tokens`
 
-**DMS API** — Go backend, source code studied (`/dms-main`). REST API on port 8080.
-- Blocked: waiting for service account credentials
-- Auth: `POST /v1/api/auth` -> JWT
-- Client lookup, orders, payment links — all through DMS REST API
+**DMS API** — Go backend (`/dms-main`). REST API.
+- Блокер: нет credentials для service account
+- Auth: `POST /v1/api/auth` → JWT
+- Клиенты, заказы, платёжные ссылки
 
-**LMS (Moodle)** — accessed through DMS, not directly.
+**LMS (Moodle)** — через DMS, не напрямую.
 
 ---
 
-## Database schema (shared Supabase)
+## Спринты по ролям
 
-AI Agent tables use `chat_` and `agent_` prefixes to avoid conflicts with Node.js bot:
+### Продавец (seller_staff/TZ.md)
 
-```sql
--- Sprint 1
-conversations (id uuid PK, actor_id, channel, status, metadata, created_at, updated_at)
-chat_messages (id uuid PK, conversation_id FK, role, content, model, token_usage, metadata, created_at)
+| Спринт | Даты | Статус |
+|---|---|---|
+| 1 — Основа | 09.03 – 16.03 | Done |
+| 2 — База знаний | 16.03 – 23.03 | Done |
+| 3 — Целевые действия | 23.03 – 03.04 | Done |
+| 4 — Сценарии | 06.04 – 13.04 | Следующий |
+| 5 — Дашборд | 13.04 – 20.04 | — |
+| 6 — Пилот | 20.04 – 30.04 | — |
 
--- Sprint 2
-knowledge_chunks (id serial PK, content, embedding vector(1536), source, metadata, created_at)
+### Поддержка (support_staff/TZ.md)
 
--- Sprint 3
-amocrm_tokens (account_id text PK, access_token, refresh_token, expires_at)  -- shared
-agent_contact_mapping (actor_id text PK, amocrm_contact_id, contact_name)
-agent_deal_mapping (conversation_id uuid PK FK, amocrm_lead_id, amocrm_contact_id, pipeline_id, status_id)
+| Спринт | Даты | Статус |
+|---|---|---|
+| 1 — Переключение ролей | 06.04 – 13.04 | — |
+| 2 — База знаний КС | 13.04 – 20.04 | — |
+| 3 — Онбординг + DMS | 20.04 – 04.05 | — |
+| 4 — Уведомления | 04.05 – 18.05 | — |
+| 5 — Чек-листы + ГИА | 18.05 – 01.06 | — |
+| 6 — Аналитика | 01.06 – 16.06 | — |
+| 7 — Пилот | 16.06 – 30.06 | — |
+
+### Учитель (teacher_staff/TZ.md)
+
+| Спринт | Даты | Статус |
+|---|---|---|
+| 1–4 | Дек 2025 – Апр 2026 | Завершены |
+| 5 — Проактивность | Апр – 12.05 | — |
+| 6 — Подготовка к аттестациям | 12.05 – 15.06 | — |
+| 7–10 — Генерация материалов | 15.06 – 31.08 | — |
+
+---
+
+## Загрузка базы знаний (RAG)
+
+```bash
+# Из eurika/backend/:
+PYTHONPATH=. python -m app.rag.loader --namespace sales --dir ../seller_staff/knowledge_base/
+PYTHONPATH=. python -m app.rag.loader --namespace support --dir ../support_staff/knowledge_base/
 ```
 
 ---
 
-## Sprint progress
+## Деплой
 
-| Sprint | Goal | Status |
-|---|---|---|
-| 1 | FastAPI skeleton + React Chat UI + SSE streaming + Auth | Done |
-| 2 | RAG pipeline + knowledge base loader + system prompt | Done |
-| 3 | amoCRM + escalation + function calling | Done |
-| 4 | All 3 sales scenarios + follow-up scheduler | Next |
-| 5 | Dashboard + portal embed | |
-| 6 | Closed pilot deploy | |
+- **Backend (dev):** `PYTHONPATH=. .venv/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8009 --reload`
+- **Frontend (dev):** `npm run dev` (port 5177)
+- **Frontend prod:** Vercel
+- **Node.js TG Bot:** Render (`edpalm-unified-tg-bot`)
 
 ---
 
-## Deploy
+## Блокеры
 
-- **Backend (local dev):** `python app/main.py` on port 8009
-- **Frontend (local dev):** `npm run dev` on port 5177
-- **Render (Node.js TG Bot):** `edpalm-unified-tg-bot` (prod, main branch)
-- **Frontend prod:** Vercel (free tier)
-
-## Blockers
-
-| Blocker | Sprint |
+| Блокер | Влияет на |
 |---|---|
-| **DMS credentials** — service account login/password for the agent | Sprint 3-4 |
+| **amoCRM подписка (402)** — только GET работает, код интеграции готов | Все роли |
+| **DMS credentials** — нет учётки для агента | Продавец Sprint 3-4, Поддержка Sprint 3 |
+| **Чек-листы от заказчика** — содержание процессов | Поддержка Sprint 5 |

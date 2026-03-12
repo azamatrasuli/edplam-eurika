@@ -5,12 +5,13 @@ import logging
 from collections.abc import Generator
 
 import httpx
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.auth.service import AuthService
 from app.config import get_settings
 from app.models.chat import (
+    AgentRole,
     AuthPayload,
     ChatStreamRequest,
     ConversationMessagesResponse,
@@ -18,6 +19,7 @@ from app.models.chat import (
     StartConversationResponse,
 )
 from app.services.chat import ChatService
+from app.services.imbox import ImBoxService
 from app.services.llm import LLMChunk, ToolCallEvent
 from app.services.speech import ALLOWED_FORMATS, SpeechService
 
@@ -27,6 +29,7 @@ router = APIRouter(prefix="/api/v1", tags=["chat"])
 auth_service = AuthService()
 chat_service = ChatService()
 speech_service = SpeechService()
+imbox_service = ImBoxService()
 
 
 def _sse(event: str, payload: dict) -> str:
@@ -68,6 +71,7 @@ def _make_stream(
 ) -> Generator[str, None, None]:
     """Shared SSE stream generator for text and voice endpoints."""
     chat_service.save_user_message(ctx.conversation.id, user_text)
+    imbox_service.forward_user_message(actor, user_text)
 
     meta_payload = {
         "conversation_id": ctx.conversation.id,
@@ -115,6 +119,7 @@ def _make_stream(
         usage_tokens=usage_tokens,
         rag_metadata=rag_metadata,
     )
+    imbox_service.forward_agent_response(actor, answer)
 
     # Handle escalation
     if rag_metadata and rag_metadata.get("escalation"):
@@ -136,6 +141,7 @@ def _make_stream(
 @router.post("/conversations/start", response_model=StartConversationResponse)
 def start_conversation(req: StartConversationRequest) -> StartConversationResponse:
     actor = auth_service.resolve(req.auth)
+    actor = actor.model_copy(update={"agent_role": req.agent_role})
     ctx = chat_service.ensure_conversation(actor, conversation_id=req.conversation_id)
     # Generate greeting only for new conversations (no history)
     if not ctx.history:
@@ -151,8 +157,13 @@ def start_conversation(req: StartConversationRequest) -> StartConversationRespon
     )
 
 
-@router.get("/conversations/{conversation_id}/messages", response_model=ConversationMessagesResponse)
-def conversation_messages(conversation_id: str) -> ConversationMessagesResponse:
+@router.post("/conversations/{conversation_id}/messages", response_model=ConversationMessagesResponse)
+def conversation_messages(conversation_id: str, auth: AuthPayload) -> ConversationMessagesResponse:
+    actor = auth_service.resolve(auth)
+    # Verify the conversation belongs to this actor
+    conv = chat_service.repo.get_conversation_owner(conversation_id)
+    if not conv or conv != actor.actor_id:
+        raise HTTPException(403, "Access denied")
     messages = chat_service.get_messages(conversation_id)
     return ConversationMessagesResponse(conversation_id=conversation_id, messages=messages)
 
@@ -160,6 +171,7 @@ def conversation_messages(conversation_id: str) -> ConversationMessagesResponse:
 @router.post("/chat/stream")
 def chat_stream(req: ChatStreamRequest) -> StreamingResponse:
     actor = auth_service.resolve(req.auth)
+    actor = actor.model_copy(update={"agent_role": req.agent_role})
     ctx = chat_service.ensure_conversation(actor, conversation_id=req.conversation_id)
     return StreamingResponse(
         _make_stream(req.message, actor, ctx),
@@ -167,11 +179,27 @@ def chat_stream(req: ChatStreamRequest) -> StreamingResponse:
     )
 
 
+@router.post("/chat/transcribe")
+async def chat_transcribe(audio: UploadFile = File(...)) -> dict:
+    """Accept audio, transcribe via Whisper, return text (no LLM call)."""
+    ext = (audio.filename or "audio.webm").rsplit(".", 1)[-1].lower()
+    if ext not in ALLOWED_FORMATS:
+        raise HTTPException(400, f"Unsupported format: {ext}")
+    audio_bytes = await audio.read()
+    if len(audio_bytes) > 25 * 1024 * 1024:
+        raise HTTPException(413, "Audio file too large")
+    transcript = speech_service.transcribe(audio_bytes, filename=audio.filename or f"voice.{ext}")
+    if not transcript:
+        raise HTTPException(502, "Speech-to-text unavailable")
+    return {"transcript": transcript}
+
+
 @router.post("/chat/voice")
 async def chat_voice(
     audio: UploadFile = File(...),
     auth_json: str = Form(...),
     conversation_id: str | None = Form(default=None),
+    agent_role: str = Form(default="sales"),
 ) -> StreamingResponse:
     """Accept voice message, transcribe via Whisper, then stream LLM response."""
     ext = (audio.filename or "audio.webm").rsplit(".", 1)[-1].lower()
@@ -186,8 +214,10 @@ async def chat_voice(
     if not transcript:
         raise HTTPException(502, "Speech-to-text service unavailable")
 
+    role_enum = AgentRole(agent_role) if agent_role in ("sales", "support") else AgentRole.sales
     auth = AuthPayload.model_validate_json(auth_json)
     actor = auth_service.resolve(auth)
+    actor = actor.model_copy(update={"agent_role": role_enum})
     ctx = chat_service.ensure_conversation(actor, conversation_id=conversation_id)
 
     return StreamingResponse(
@@ -206,3 +236,44 @@ def amocrm_oauth_callback(code: str):
     if success:
         return {"status": "ok", "message": "amoCRM tokens saved"}
     raise HTTPException(500, "Failed to exchange amoCRM authorization code")
+
+
+@router.post("/amocrm/chat/webhook/{scope_id}")
+async def amocrm_chat_webhook(scope_id: str, request: Request):
+    """Receive manager replies from amoCRM imBox. Always returns 200."""
+    body = await request.body()
+    body_str = body.decode("utf-8", errors="replace")
+
+    signature = request.headers.get("X-Signature", "")
+    if signature and not imbox_service.client.verify_webhook_signature(body, signature):
+        logger.warning("Invalid amoCRM chat webhook signature")
+        return {"status": "signature_invalid"}
+
+    try:
+        payload = json.loads(body_str)
+    except Exception:
+        return {"status": "invalid_json"}
+
+    event_type = payload.get("event_type")
+    inner = payload.get("payload", payload)
+
+    if event_type == "new_message":
+        conversation_id = inner.get("conversation_id", "")
+        sender = inner.get("sender", {})
+        message = inner.get("message", {})
+        text = message.get("text", "")
+        msgid = inner.get("msgid", "")
+
+        logger.info("Manager reply via imBox: conv=%s sender=%s", conversation_id, sender.get("name"))
+
+        actor_id = imbox_service.repo.find_actor_by_chat_conversation_id(conversation_id)
+        if actor_id and text:
+            imbox_service.repo.save_manager_message(
+                actor_id=actor_id,
+                content=text,
+                conversation_id=conversation_id,
+                amocrm_msgid=msgid,
+                sender_name=sender.get("name"),
+            )
+
+    return {"status": "ok"}

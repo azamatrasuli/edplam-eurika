@@ -43,6 +43,15 @@ class Settings(BaseSettings):
     amocrm_product_field: int = Field(default=1396313, alias="AMOCRM_PRODUCT_FIELD")
     amocrm_amount_field: int = Field(default=1396315, alias="AMOCRM_AMOUNT_FIELD")
 
+    # --- amoCRM Chat API (imBox) ---
+    amocrm_chat_channel_id: str = Field(default="", alias="AMOCRM_CHAT_CHANNEL_ID")
+    amocrm_chat_secret_key: str = Field(default="", alias="AMOCRM_CHAT_SECRET_KEY")
+
+    # --- DMS API ---
+    dms_base_url: str | None = Field(default=None, alias="DMS_BASE_URL")
+    dms_username: str | None = Field(default=None, alias="DMS_USERNAME")
+    dms_password: str | None = Field(default=None, alias="DMS_PASSWORD")
+
     # --- Escalation ---
     manager_telegram_chat_id: str = Field(default="", alias="MANAGER_TELEGRAM_CHAT_ID")
 
@@ -57,6 +66,10 @@ class Settings(BaseSettings):
     @property
     def amocrm_configured(self) -> bool:
         return bool(self.amocrm_client_id and self.amocrm_client_secret)
+
+    @property
+    def amocrm_chat_configured(self) -> bool:
+        return bool(self.amocrm_chat_channel_id and self.amocrm_chat_secret_key)
 
 
 @lru_cache(maxsize=1)
