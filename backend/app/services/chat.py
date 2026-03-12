@@ -9,6 +9,7 @@ from app.db.repository import ConversationRepository, StoredConversation
 from app.integrations.amocrm import AmoCRMClient
 from app.models.chat import ActorContext, AgentRole, Channel, ChatMessage
 from app.services.llm import LLMService
+from app.services.memory import MemoryService
 from app.services.onboarding import OnboardingService
 
 logger = logging.getLogger("chat")
@@ -27,51 +28,102 @@ class ChatService:
         self.llm = LLMService()
         self.crm = AmoCRMClient()
         self.onboarding = OnboardingService()
+        self.memory = MemoryService()
 
-    def ensure_conversation(self, actor: ActorContext, conversation_id: str | None) -> StreamContext:
-        conv = self.repo.start_or_resume_conversation(actor, conversation_id)
+    def ensure_conversation(
+        self, actor: ActorContext, conversation_id: str | None, *, force_new: bool = False,
+    ) -> StreamContext:
+        conv = self.repo.start_or_resume_conversation(actor, conversation_id, force_new=force_new)
         history = self.repo.get_messages(conv.id, limit=50)
         return StreamContext(conversation=conv, actor=actor, history=history)
 
     def generate_greeting(self, actor: ActorContext, conversation_id: str) -> str:
-        """Generate a personalized greeting and save it as the first assistant message."""
+        """Generate a personalized greeting based on channel, time, and profile."""
+        import datetime as _dt
+
         name = actor.display_name.strip() if actor.display_name else None
         is_support = actor.agent_role == AgentRole.support
 
-        if is_support:
-            if name:
-                greeting = (
-                    f"Здравствуйте, {name}! Я Эврика, служба поддержки EdPalm. "
-                    "Помогу с вопросами по платформе, документам и оплате. "
-                    "Чем могу помочь?"
-                )
-            else:
-                greeting = (
-                    "Здравствуйте! Я Эврика, служба поддержки EdPalm. "
-                    "Помогу с вопросами по платформе, документам и оплате. "
-                    "Чем могу помочь?"
-                )
+        # Time of day (Moscow UTC+3)
+        moscow_hour = (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=3)).hour
+        if 6 <= moscow_hour < 12:
+            hi = "Доброе утро"
+        elif 12 <= moscow_hour < 18:
+            hi = "Добрый день"
         else:
-            if name:
+            hi = "Добрый вечер"
+
+        # Check saved profile for richer context
+        profile = self.onboarding.check_profile(actor.actor_id)
+        child_snippet = ""
+        if profile and profile.dms_verified and profile.children:
+            first_child = profile.children[0]
+            child_name = (first_child.get("fio") or "").split()[0]
+            child_grade = first_child.get("grade")
+            if child_name and child_grade:
+                child_snippet = f" Вижу, {child_name} в {child_grade} классе."
+
+        # --- Build greeting by channel × role ---
+        if is_support:
+            if name and child_snippet:
+                greeting = f"{hi}, {name}!{child_snippet} Чем могу помочь?"
+            elif name:
                 greeting = (
-                    f"Здравствуйте, {name}! Я Эврика, виртуальный менеджер EdPalm. "
-                    "Помогу подобрать программу обучения и отвечу на ваши вопросы. "
-                    "Расскажите, что вас интересует?"
+                    f"{hi}, {name}! Я Эврика — помогу с вопросами "
+                    "по платформе, документам и оплате. Что случилось?"
                 )
             else:
                 greeting = (
-                    "Здравствуйте! Я Эврика, виртуальный менеджер EdPalm. "
-                    "Помогу подобрать программу обучения и отвечу на ваши вопросы. "
-                    "Расскажите, что вас интересует?"
+                    f"{hi}! Я Эврика — помогу с вопросами "
+                    "по платформе, документам и оплате. Чем могу помочь?"
                 )
+        elif actor.channel == Channel.telegram:
+            if name:
+                greeting = (
+                    f"Привет, {name}! Я Эврика из EdPalm — "
+                    "помогу разобраться в программах обучения. "
+                    "О чём хотите узнать?"
+                )
+            else:
+                greeting = (
+                    "Привет! Я Эврика из EdPalm — "
+                    "помогу разобраться в программах обучения. "
+                    "О чём хотите узнать?"
+                )
+        elif actor.channel == Channel.external:
+            greeting = (
+                f"{hi}! Я Эврика из EdPalm. "
+                "Помогу подобрать программу и отвечу на вопросы. "
+                "Что вас интересует?"
+            )
+        else:
+            # Portal
+            if name and child_snippet:
+                greeting = f"{hi}, {name}!{child_snippet} Чем могу помочь?"
+            elif name:
+                greeting = (
+                    f"{hi}, {name}! Я Эврика — помогу подобрать "
+                    "программу обучения. Что вас интересует?"
+                )
+            else:
+                greeting = (
+                    f"{hi}! Я Эврика — помогу подобрать "
+                    "программу обучения. Что вас интересует?"
+                )
+
         self.save_assistant_message(conversation_id, greeting, usage_tokens=None)
         return greeting
 
     def resolve_crm_context(self, actor: ActorContext) -> dict | None:
-        """Look up actor in amoCRM. Returns CRM context dict or None."""
+        """Look up actor in amoCRM. Returns CRM context dict or None.
+
+        Side-effect: if a CRM contact has a phone and no DMS profile exists
+        for this actor, auto-resolve via DMS and persist for future sessions.
+        """
         # Check local mapping first
         contact_id = self.repo.get_contact_mapping(actor.actor_id)
         contact_name = None
+        contact_phone = None
 
         if not contact_id:
             # Try amoCRM lookup by channel-specific identifier
@@ -85,9 +137,23 @@ class ChatService:
             if contact:
                 contact_id = contact.id
                 contact_name = contact.name
+                contact_phone = contact.phone
                 self.repo.save_contact_mapping(actor.actor_id, contact.id, contact.name)
             else:
                 return None
+        else:
+            # We have a saved mapping but may not have the phone — try CRM for it
+            contact_phone = actor.phone
+
+        # Auto-resolve DMS profile if CRM contact has phone and no profile yet
+        resolved_phone = contact_phone or actor.phone
+        if resolved_phone and actor.actor_id:
+            try:
+                existing_profile = self.onboarding.check_profile(actor.actor_id)
+                if not existing_profile:
+                    self.onboarding.save_profile_from_phone(actor.actor_id, resolved_phone)
+            except Exception:
+                logger.debug("Auto DMS resolve failed for %s", actor.actor_id, exc_info=True)
 
         # Found contact — check for active deal
         pipeline_id = None
@@ -113,6 +179,8 @@ class ChatService:
             content=text,
             metadata={"prompt_version": PROMPT_VERSION},
         )
+        # Update message_count, last_user_message, and auto-title
+        self.repo.update_message_stats(conversation_id, text)
 
     def save_assistant_message(
         self,
@@ -167,6 +235,17 @@ class ChatService:
                 )
                 profile_context = (profile_context + "\n\n" + renewal_ctx) if profile_context else renewal_ctx
 
+        # Load memory context from past conversations
+        memory_context = None
+        try:
+            memory_context = self.memory.get_memory_context(
+                actor_id=actor.actor_id,
+                user_text=user_text,
+                agent_role=agent_role,
+            )
+        except Exception:
+            logger.debug("Memory retrieval failed for %s", actor.actor_id, exc_info=True)
+
         return self.llm.stream_answer(
             user_text=user_text,
             actor=actor,
@@ -174,6 +253,7 @@ class ChatService:
             crm_context=crm_context,
             tool_executor=tool_executor,
             profile_context=profile_context or None,
+            memory_context=memory_context,
         )
 
     def get_messages(self, conversation_id: str) -> list[ChatMessage]:

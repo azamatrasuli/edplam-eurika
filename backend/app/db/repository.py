@@ -22,6 +22,13 @@ class StoredConversation:
     actor_id: str
     channel: str
     agent_role: str = "sales"
+    status: str = "active"
+    title: str | None = None
+    message_count: int = 0
+    last_user_message: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    archived_at: datetime | None = None
 
 
 class ConversationRepository:
@@ -33,10 +40,12 @@ class ConversationRepository:
     def _has_db(self) -> bool:
         return has_pool()
 
-    def start_or_resume_conversation(self, actor: ActorContext, conversation_id: str | None = None) -> StoredConversation:
+    def start_or_resume_conversation(
+        self, actor: ActorContext, conversation_id: str | None = None, *, force_new: bool = False,
+    ) -> StoredConversation:
         if self._has_db():
             try:
-                return self._start_or_resume_db(actor, conversation_id)
+                return self._start_or_resume_db(actor, conversation_id, force_new=force_new)
             except (psycopg.Error, OSError):
                 logger.warning("Failed to start/resume conversation in DB, falling back to memory", exc_info=True)
         return self._start_or_resume_memory(actor, conversation_id)
@@ -110,16 +119,21 @@ class ConversationRepository:
             rows = self._memory_messages.get(conversation_id, [])[-limit:]
             return [ChatMessage(**row) for row in rows]
 
-    def _start_or_resume_db(self, actor: ActorContext, conversation_id: str | None) -> StoredConversation:
+    def _start_or_resume_db(
+        self, actor: ActorContext, conversation_id: str | None, *, force_new: bool = False,
+    ) -> StoredConversation:
         agent_role = actor.agent_role.value if hasattr(actor.agent_role, "value") else str(actor.agent_role)
         with get_connection() as conn:
             if conn is None:
                 raise OSError("No DB connection")
             with conn.cursor() as cur:
-                if conversation_id:
+                # Resume existing conversation (unless force_new)
+                if conversation_id and not force_new:
                     cur.execute(
                         """
-                        select id, actor_id, channel, agent_role
+                        select id, actor_id, channel, agent_role,
+                               title, message_count, last_user_message,
+                               created_at, updated_at, archived_at
                         from conversations
                         where id = %s and actor_id = %s and agent_role = %s
                         """,
@@ -132,13 +146,20 @@ class ConversationRepository:
                             actor_id=row["actor_id"],
                             channel=row["channel"],
                             agent_role=row.get("agent_role", "sales") or "sales",
+                            title=row.get("title"),
+                            message_count=row.get("message_count", 0) or 0,
+                            last_user_message=row.get("last_user_message"),
+                            created_at=row.get("created_at"),
+                            updated_at=row.get("updated_at"),
+                            archived_at=row.get("archived_at"),
                         )
 
+                # Create new conversation
                 cur.execute(
                     """
                     insert into conversations(actor_id, channel, metadata, agent_role)
                     values (%s, %s, %s, %s)
-                    returning id, actor_id, channel, agent_role
+                    returning id, actor_id, channel, agent_role, created_at, updated_at
                     """,
                     (actor.actor_id, actor.channel.value, Json(actor.metadata), agent_role),
                 )
@@ -149,7 +170,227 @@ class ConversationRepository:
             actor_id=created["actor_id"],
             channel=created["channel"],
             agent_role=created.get("agent_role", "sales") or "sales",
+            created_at=created.get("created_at"),
+            updated_at=created.get("updated_at"),
         )
+
+    # ---- Chat History methods ------------------------------------------------
+
+    def list_conversations(
+        self,
+        actor_id: str,
+        agent_role: str | None = None,
+        offset: int = 0,
+        limit: int = 20,
+        include_archived: bool = False,
+    ) -> tuple[list[StoredConversation], int]:
+        """List conversations for an actor. Returns (conversations, total_count)."""
+        if not self._has_db():
+            return [], 0
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return [], 0
+                with conn.cursor() as cur:
+                    where = "WHERE actor_id = %s"
+                    params: list[Any] = [actor_id]
+
+                    if agent_role:
+                        where += " AND agent_role = %s"
+                        params.append(agent_role)
+
+                    if not include_archived:
+                        where += " AND archived_at IS NULL"
+
+                    # Total count
+                    cur.execute(f"SELECT COUNT(*) AS cnt FROM conversations {where}", params)
+                    total = cur.fetchone()["cnt"]
+
+                    # Paginated results
+                    cur.execute(
+                        f"""
+                        SELECT id, actor_id, channel, agent_role, status,
+                               title, message_count, last_user_message,
+                               created_at, updated_at, archived_at
+                        FROM conversations
+                        {where}
+                        ORDER BY updated_at DESC
+                        LIMIT %s OFFSET %s
+                        """,
+                        [*params, limit, offset],
+                    )
+                    rows = cur.fetchall()
+
+                convs = [
+                    StoredConversation(
+                        id=str(row["id"]),
+                        actor_id=row["actor_id"],
+                        channel=row["channel"],
+                        agent_role=row.get("agent_role", "sales") or "sales",
+                        status=row.get("status", "active") or "active",
+                        title=row.get("title"),
+                        message_count=row.get("message_count", 0) or 0,
+                        last_user_message=row.get("last_user_message"),
+                        created_at=row.get("created_at"),
+                        updated_at=row.get("updated_at"),
+                        archived_at=row.get("archived_at"),
+                    )
+                    for row in rows
+                ]
+                return convs, total
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to list conversations for actor=%s", actor_id, exc_info=True)
+            return [], 0
+
+    def archive_conversation(self, conversation_id: str, actor_id: str) -> bool:
+        """Soft-delete a conversation. Returns True if archived."""
+        if not self._has_db():
+            return False
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return False
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        UPDATE conversations
+                        SET archived_at = NOW()
+                        WHERE id = %s AND actor_id = %s AND archived_at IS NULL
+                        """,
+                        (conversation_id, actor_id),
+                    )
+                    affected = cur.rowcount
+                conn.commit()
+                return affected > 0
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to archive conversation %s", conversation_id, exc_info=True)
+            return False
+
+    def delete_conversation(self, conversation_id: str, actor_id: str) -> bool:
+        """Hard-delete a conversation and all its messages (CASCADE). Returns True if deleted."""
+        if not self._has_db():
+            return False
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return False
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "DELETE FROM conversations WHERE id = %s AND actor_id = %s",
+                        (conversation_id, actor_id),
+                    )
+                    affected = cur.rowcount
+                conn.commit()
+                return affected > 0
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to delete conversation %s", conversation_id, exc_info=True)
+            return False
+
+    def update_conversation_title(self, conversation_id: str, title: str) -> None:
+        """Set or update conversation title."""
+        if not self._has_db():
+            return
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "UPDATE conversations SET title = %s WHERE id = %s",
+                        (title, conversation_id),
+                    )
+                conn.commit()
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to update title for conv=%s", conversation_id, exc_info=True)
+
+    def search_conversations(self, actor_id: str, query: str, agent_role: str | None = None) -> list[StoredConversation]:
+        """Search conversations by title and last_user_message using trigram similarity."""
+        if not self._has_db():
+            return []
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return []
+                with conn.cursor() as cur:
+                    where = "WHERE actor_id = %s AND archived_at IS NULL"
+                    params: list[Any] = [actor_id]
+
+                    if agent_role:
+                        where += " AND agent_role = %s"
+                        params.append(agent_role)
+
+                    escaped = query.replace("%", r"\%").replace("_", r"\_")
+                    like_query = f"%{escaped}%"
+                    where += " AND (title ILIKE %s OR last_user_message ILIKE %s)"
+                    params.extend([like_query, like_query])
+
+                    cur.execute(
+                        f"""
+                        SELECT id, actor_id, channel, agent_role, status,
+                               title, message_count, last_user_message,
+                               created_at, updated_at, archived_at
+                        FROM conversations
+                        {where}
+                        ORDER BY updated_at DESC
+                        LIMIT 20
+                        """,
+                        params,
+                    )
+                    rows = cur.fetchall()
+
+                return [
+                    StoredConversation(
+                        id=str(row["id"]),
+                        actor_id=row["actor_id"],
+                        channel=row["channel"],
+                        agent_role=row.get("agent_role", "sales") or "sales",
+                        status=row.get("status", "active") or "active",
+                        title=row.get("title"),
+                        message_count=row.get("message_count", 0) or 0,
+                        last_user_message=row.get("last_user_message"),
+                        created_at=row.get("created_at"),
+                        updated_at=row.get("updated_at"),
+                        archived_at=row.get("archived_at"),
+                    )
+                    for row in rows
+                ]
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to search conversations for actor=%s", actor_id, exc_info=True)
+            return []
+
+    def update_message_stats(self, conversation_id: str, user_message: str) -> None:
+        """Increment message_count and set last_user_message + auto-title on first message."""
+        if not self._has_db():
+            return
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return
+                with conn.cursor() as cur:
+                    # Increment count and update last user message
+                    cur.execute(
+                        """
+                        UPDATE conversations
+                        SET message_count = message_count + 1,
+                            last_user_message = %s
+                        WHERE id = %s
+                        RETURNING message_count, title
+                        """,
+                        (user_message[:500], conversation_id),
+                    )
+                    row = cur.fetchone()
+
+                    # Auto-title from first user message if no title yet
+                    if row and row["message_count"] == 1 and not row["title"]:
+                        title = user_message[:60].rsplit(" ", 1)[0] if len(user_message) > 60 else user_message
+                        cur.execute(
+                            "UPDATE conversations SET title = %s WHERE id = %s",
+                            (title.strip(), conversation_id),
+                        )
+
+                conn.commit()
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to update message stats for conv=%s", conversation_id, exc_info=True)
 
     # ---- CRM mapping methods -----------------------------------------------
 

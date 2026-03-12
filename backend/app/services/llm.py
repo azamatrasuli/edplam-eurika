@@ -94,6 +94,7 @@ class LLMService:
         crm_context: dict | None = None,
         tool_executor: Any | None = None,
         profile_context: str | None = None,
+        memory_context: str | None = None,
     ) -> Generator[LLMChunk | ToolCallEvent, None, LLMResult]:
         """
         Stream LLM answer with function calling support.
@@ -123,6 +124,8 @@ class LLMService:
         ]
         if profile_context:
             messages.append({"role": "system", "content": profile_context})
+        if memory_context:
+            messages.append({"role": "system", "content": memory_context})
         crm_ctx_str = self._crm_context(crm_context)
         if crm_ctx_str:
             messages.append({"role": "system", "content": crm_ctx_str})

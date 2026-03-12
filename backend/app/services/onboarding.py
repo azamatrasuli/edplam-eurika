@@ -83,6 +83,36 @@ class OnboardingService:
             dms_data=dms_data,
         )
 
+    def save_profile_from_phone(self, actor_id: str, phone: str) -> bool:
+        """Auto-resolve DMS profile by phone and save. Returns True if saved."""
+        norm_phone = normalize_phone(phone)
+        dms_result = self.dms.search_contact_by_phone(norm_phone)
+        if not dms_result:
+            return False
+
+        contact = dms_result.contact
+        children = [{"fio": s.fio, "grade": s.grade} for s in dms_result.students]
+        full_name = f"{contact.surname} {contact.name} {contact.patronymic or ''}".strip()
+        first_grade = dms_result.students[0].grade if dms_result.students else None
+        dms_data = self._build_dms_data(dms_result)
+
+        self.repo.save_user_profile(
+            actor_id=actor_id,
+            client_type="existing",
+            user_role="parent",
+            phone=norm_phone,
+            phone_raw=phone,
+            fio=full_name,
+            grade=first_grade,
+            children=children,
+            dms_verified=True,
+            dms_contact_id=contact.contact_id,
+            dms_data=dms_data.model_dump() if dms_data else None,
+            verification_status="found",
+        )
+        logger.info("Auto-saved DMS profile for actor=%s phone=%s", actor_id, norm_phone)
+        return True
+
     def get_profile_context_for_llm(self, actor_id: str) -> str:
         """Build context string for injection into LLM system messages."""
         profile = self.check_profile(actor_id)

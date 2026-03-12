@@ -494,7 +494,7 @@ class ToolExecutor:
         )
 
     def _tool_get_client_profile(self, phone: str) -> ToolResult:
-        """Look up client profile in DMS by phone number."""
+        """Look up client profile in DMS by phone number and auto-save to profile store."""
         result = self.dms.search_contact_by_phone(phone)
         if not result:
             return ToolResult(
@@ -502,6 +502,17 @@ class ToolExecutor:
                 result='{"found": false, "message": "Клиент не найден по указанному телефону"}',
             )
         contact = result.contact
+        students_data = [
+            {
+                "fio": s.fio,
+                "grade": s.grade,
+                "product": s.product_name,
+                "state": s.state,
+                "school": s.enrollment_school,
+                "is_active": s.is_active,
+            }
+            for s in result.students
+        ]
         profile = {
             "found": True,
             "contact": {
@@ -509,18 +520,49 @@ class ToolExecutor:
                 "phone": contact.phone,
                 "email": contact.email,
             },
-            "students": [
-                {
-                    "fio": s.fio,
-                    "grade": s.grade,
-                    "product": s.product_name,
-                    "state": s.state,
-                    "school": s.enrollment_school,
-                    "is_active": s.is_active,
-                }
-                for s in result.students
-            ],
+            "students": students_data,
         }
+
+        # Write-back: persist discovered profile for future sessions
+        if self.actor_id:
+            try:
+                children = [{"fio": s.fio, "grade": s.grade} for s in result.students]
+                full_name = f"{contact.surname} {contact.name} {contact.patronymic or ''}".strip()
+                first_grade = result.students[0].grade if result.students else None
+                dms_data = {
+                    "contact_id": contact.contact_id,
+                    "students": [
+                        {
+                            "student_id": s.student_id,
+                            "fio": s.fio,
+                            "grade": s.grade,
+                            "product_name": s.product_name,
+                            "moodle_id": s.moodle_id,
+                        }
+                        for s in result.students
+                    ],
+                }
+                self.repo.save_user_profile(
+                    actor_id=self.actor_id,
+                    client_type="existing",
+                    user_role="parent",
+                    phone=_normalize_phone(phone),
+                    phone_raw=phone,
+                    fio=full_name,
+                    grade=first_grade,
+                    children=children,
+                    dms_verified=True,
+                    dms_contact_id=contact.contact_id,
+                    dms_data=dms_data,
+                    verification_status="found",
+                )
+                logger.info(
+                    "Write-back: saved DMS profile for actor=%s phone=%s",
+                    self.actor_id, phone,
+                )
+            except Exception:
+                logger.warning("Write-back failed for actor=%s", self.actor_id, exc_info=True)
+
         return ToolResult(
             name="get_client_profile",
             result=json.dumps(profile, ensure_ascii=False),

@@ -187,9 +187,22 @@ body {
   50% { opacity: 0.5; }
 }
 
+@keyframes slide-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
 @keyframes transcribe-pulse {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 1; }
+}
+
+/* ================================================================
+   Sidebar slide-in animation
+   ================================================================ */
+
+.animate-slide-in {
+  animation: slide-in 0.2s ease-out;
 }
 
 /* ================================================================

@@ -80,7 +80,7 @@ eurika/
 - OAuth токены в `amocrm_tokens` (shared с TG ботом)
 
 **Supabase (PostgreSQL)** — shared между AI Agent и Node.js TG Bot
-- Project: `qieftukvzjpcnakimxmo`
+- Project: `vlywxexthbxehtmopird`
 - AI Agent таблицы: `conversations`, `chat_messages`, `knowledge_chunks`, `agent_contact_mapping`, `agent_deal_mapping`, `agent_user_profiles`
 - Shared: `amocrm_tokens`
 

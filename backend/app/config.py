@@ -58,6 +58,18 @@ class Settings(BaseSettings):
     # --- Dashboard ---
     dashboard_api_key: str = Field(default="", alias="DASHBOARD_API_KEY")
 
+    # --- Conversational Memory ---
+    memory_enabled: bool = Field(default=True, alias="MEMORY_ENABLED")
+    memory_idle_minutes: int = Field(default=30, alias="MEMORY_IDLE_MINUTES")
+    memory_min_messages: int = Field(default=4, alias="MEMORY_MIN_MESSAGES")
+    memory_max_context_tokens: int = Field(default=800, alias="MEMORY_MAX_CONTEXT_TOKENS")
+    memory_summary_top_k: int = Field(default=3, alias="MEMORY_SUMMARY_TOP_K")
+    memory_atoms_top_k: int = Field(default=5, alias="MEMORY_ATOMS_TOP_K")
+    memory_summary_threshold: float = Field(default=0.4, alias="MEMORY_SUMMARY_THRESHOLD")
+    memory_atom_threshold: float = Field(default=0.35, alias="MEMORY_ATOM_THRESHOLD")
+    memory_recency_halflife_days: int = Field(default=30, alias="MEMORY_RECENCY_HALFLIFE_DAYS")
+    memory_cross_role_types: str = Field(default="preference,entity", alias="MEMORY_CROSS_ROLE_TYPES")
+
     @property
     def cors_origins(self) -> list[str]:
         return [x.strip() for x in self.app_cors_origins.split(",") if x.strip()]

@@ -37,6 +37,7 @@ class StartConversationRequest(BaseModel):
     auth: AuthPayload
     conversation_id: str | None = None
     agent_role: AgentRole = AgentRole.sales
+    force_new: bool = False
 
 
 class StartConversationResponse(BaseModel):
@@ -61,3 +62,42 @@ class ChatMessage(BaseModel):
 class ConversationMessagesResponse(BaseModel):
     conversation_id: str
     messages: list[ChatMessage]
+
+
+# ---- Chat History models -------------------------------------------------
+
+class ConversationListRequest(BaseModel):
+    auth: AuthPayload
+    agent_role: AgentRole | None = None
+    offset: int = 0
+    limit: int = Field(default=20, le=50)
+    include_archived: bool = False
+
+
+class ConversationListItem(BaseModel):
+    id: str
+    title: str | None = None
+    agent_role: str
+    status: str = "active"
+    message_count: int = 0
+    last_user_message: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    archived_at: datetime | None = None
+
+
+class ConversationListResponse(BaseModel):
+    conversations: list[ConversationListItem]
+    total: int
+    has_more: bool
+
+
+class ConversationSearchRequest(BaseModel):
+    auth: AuthPayload
+    query: str = Field(min_length=2, max_length=200)
+    agent_role: AgentRole | None = None
+
+
+class ConversationRenameRequest(BaseModel):
+    auth: AuthPayload
+    title: str = Field(min_length=1, max_length=100)

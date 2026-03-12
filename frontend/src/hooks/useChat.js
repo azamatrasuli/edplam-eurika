@@ -1,8 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchMessages, startConversation, streamChat } from '../api/client'
 
 function getStorageKey(agentRole) {
   return `eurika_conversation_id_${agentRole}`
+}
+
+// Quick reply buttons shown after the greeting
+const QUICK_REPLIES = {
+  sales: [
+    { id: 'programs', label: 'Подобрать программу', value: 'Хочу подобрать программу обучения' },
+    { id: 'prices', label: 'Узнать стоимость', value: 'Сколько стоит обучение?' },
+    { id: 'question', label: 'У меня вопрос', value: 'У меня есть вопрос об EdPalm' },
+  ],
+  support: [
+    { id: 'platform', label: 'Вопрос по платформе', value: 'У меня вопрос по учебной платформе' },
+    { id: 'docs', label: 'Документы', value: 'Мне нужна справка или документ' },
+    { id: 'payment', label: 'Вопрос по оплате', value: 'У меня вопрос по оплате' },
+  ],
 }
 
 export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
@@ -14,64 +28,92 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
   const [escalated, setEscalated] = useState(false)
   const [escalationReason, setEscalationReason] = useState('')
   const abortRef = useRef(null)
+  const initRef = useRef(false)
+  const conversationIdRef = useRef(conversationId)
 
-  useEffect(() => {
-    if (!auth || started || !onboardingComplete) return
-    let canceled = false
+  // --- Load a conversation (new or existing) ---
+  const loadConversation = useCallback(async (convId = null, forceNew = false) => {
+    if (!auth) return null
 
-    ;(async () => {
-      try {
-        const storageKey = getStorageKey(agentRole)
-        const savedConvId = sessionStorage.getItem(storageKey)
-        const data = await startConversation(auth, savedConvId, agentRole)
-        if (canceled) return
-
-        setConversationId(data.conversation_id)
-        sessionStorage.setItem(storageKey, data.conversation_id)
-
-        // Try to restore message history if we resumed a conversation
-        if (savedConvId && data.conversation_id === savedConvId) {
-          try {
-            const historyData = await fetchMessages(savedConvId, auth)
-            if (!canceled && historyData.messages && historyData.messages.length > 0) {
-              setMessages(
-                historyData.messages
-                  .filter((m) => m.role !== 'system')
-                  .map((m) => ({
-                    id: crypto.randomUUID(),
-                    role: m.role,
-                    content: m.content,
-                  })),
-              )
-              setStarted(true)
-              return
-            }
-          } catch {
-            // History fetch failed — fall through to new greeting
-          }
-        }
-
-        if (canceled) return
-
-        // Use greeting from backend (personalized, saved in DB)
-        const greeting = data?.greeting || 'Здравствуйте! Я Эврика, виртуальный менеджер EdPalm.'
-        setMessages([
-          {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: greeting,
-          },
-        ])
-        setStarted(true)
-      } catch (e) {
-        if (!canceled) setError(e.message)
-      }
-    })()
-
-    return () => {
-      canceled = true
+    // Abort any in-flight stream
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
     }
-  }, [auth, started, agentRole, onboardingComplete])
+
+    setTyping(false)
+    setError('')
+    setEscalated(false)
+    setEscalationReason('')
+
+    try {
+      const data = await startConversation(auth, convId, agentRole, forceNew)
+      setConversationId(data.conversation_id)
+      const storageKey = getStorageKey(agentRole)
+      sessionStorage.setItem(storageKey, data.conversation_id)
+
+      // Try to restore message history for existing conversations
+      if (convId && data.conversation_id === convId && !forceNew) {
+        try {
+          const historyData = await fetchMessages(convId, auth)
+          if (historyData.messages && historyData.messages.length > 0) {
+            setMessages(
+              historyData.messages
+                .filter((m) => m.role !== 'system')
+                .map((m) => ({
+                  id: crypto.randomUUID(),
+                  role: m.role,
+                  content: m.content,
+                })),
+            )
+            setStarted(true)
+            return data
+          }
+        } catch {
+          // History fetch failed — fall through to new greeting
+        }
+      }
+
+      // Build greeting + quick reply buttons
+      const greeting = data?.greeting || 'Привет! Я Эврика из EdPalm. Чем могу помочь?'
+      const initMessages = [
+        { id: crypto.randomUUID(), role: 'assistant', content: greeting },
+      ]
+
+      // Add quick reply buttons for new conversations
+      const replies = QUICK_REPLIES[agentRole] || QUICK_REPLIES.sales
+      initMessages.push({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: '',
+        type: 'buttons',
+        buttons: replies,
+        disabled: false,
+      })
+
+      setMessages(initMessages)
+      setStarted(true)
+      return data
+    } catch (e) {
+      setError(e.message)
+      return null
+    }
+  }, [auth, agentRole])
+
+  // --- Initial load on mount ---
+  useEffect(() => {
+    if (!auth || initRef.current || !onboardingComplete) return
+    initRef.current = true
+
+    const storageKey = getStorageKey(agentRole)
+    const savedConvId = sessionStorage.getItem(storageKey)
+    loadConversation(savedConvId)
+  }, [auth, agentRole, onboardingComplete, loadConversation])
+
+  // Keep conversationIdRef in sync
+  useEffect(() => {
+    conversationIdRef.current = conversationId
+  }, [conversationId])
 
   // Cleanup abort controller on unmount
   useEffect(() => {
@@ -83,8 +125,26 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
     }
   }, [])
 
-  async function sendMessage(text) {
-    if (!text.trim() || !auth || !conversationId || typing || escalated) return
+  // --- Switch to an existing conversation ---
+  const switchConversation = useCallback(async (convId) => {
+    if (convId === conversationId) return
+    await loadConversation(convId)
+  }, [conversationId, loadConversation])
+
+  // --- Start a completely new conversation ---
+  const startNewChat = useCallback(async () => {
+    const data = await loadConversation(null, true)
+    return data
+  }, [loadConversation])
+
+  const sendMessage = useCallback(async (text) => {
+    const currentConvId = conversationIdRef.current
+    if (!text.trim() || !auth || !currentConvId || typing || escalated) return
+
+    // Disable any active quick reply buttons
+    setMessages((prev) =>
+      prev.map((m) => (m.type === 'buttons' && !m.disabled ? { ...m, disabled: true } : m)),
+    )
 
     const userMsg = { id: crypto.randomUUID(), role: 'user', content: text }
     const assistantId = crypto.randomUUID()
@@ -101,13 +161,14 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
     try {
       await streamChat({
         auth,
-        conversationId,
+        conversationId: currentConvId,
         message: text,
         agentRole,
         signal: controller.signal,
         onEvent: (event, payload) => {
-          if (event === 'meta' && payload.conversation_id && payload.conversation_id !== conversationId) {
+          if (event === 'meta' && payload.conversation_id && payload.conversation_id !== conversationIdRef.current) {
             setConversationId(payload.conversation_id)
+            conversationIdRef.current = payload.conversation_id
             sessionStorage.setItem(storageKey, payload.conversation_id)
           }
 
@@ -153,17 +214,25 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
             : m,
         ),
       )
-      const userMsg = e.message === 'SSE_TIMEOUT'
+      const errMsg = e.message === 'SSE_TIMEOUT'
         ? 'Сервер не ответил вовремя. Попробуйте ещё раз.'
         : e.message
-      setError(userMsg)
+      setError(errMsg)
     } finally {
       abortRef.current = null
     }
-  }
+  }, [auth, agentRole, typing, escalated])
 
-  return useMemo(
-    () => ({ messages, sendMessage, typing, error, started, escalated, escalationReason }),
-    [messages, typing, error, started, escalated, escalationReason],
-  )
+  return {
+    messages,
+    conversationId,
+    sendMessage,
+    typing,
+    error,
+    started,
+    escalated,
+    escalationReason,
+    switchConversation,
+    startNewChat,
+  }
 }

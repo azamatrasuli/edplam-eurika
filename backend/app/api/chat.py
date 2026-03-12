@@ -157,7 +157,7 @@ def _make_stream(
 def start_conversation(req: StartConversationRequest) -> StartConversationResponse:
     actor = auth_service.resolve(req.auth)
     actor = actor.model_copy(update={"agent_role": req.agent_role})
-    ctx = chat_service.ensure_conversation(actor, conversation_id=req.conversation_id)
+    ctx = chat_service.ensure_conversation(actor, conversation_id=req.conversation_id, force_new=req.force_new)
     # Generate greeting only for new conversations (no history)
     if not ctx.history:
         agent_role_val = actor.agent_role.value if hasattr(actor.agent_role, "value") else str(actor.agent_role)

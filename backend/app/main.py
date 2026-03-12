@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.chat import router as chat_router
+from app.api.conversations import router as conversations_router
 from app.api.dashboard import router as dashboard_router
 from app.api.onboarding import router as onboarding_router
 from app.api.renewal import router as renewal_router
@@ -67,6 +68,7 @@ def health():
 
 
 app.include_router(chat_router)
+app.include_router(conversations_router)
 app.include_router(dashboard_router)
 app.include_router(onboarding_router)
 app.include_router(renewal_router)

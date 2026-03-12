@@ -1,9 +1,11 @@
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChatWindow } from '../components/ChatWindow'
+import { ConversationSidebar } from '../components/ConversationSidebar'
 import { EscalationBanner } from '../components/EscalationBanner'
 import { MessageInput } from '../components/MessageInput'
 import { WelcomeScreen } from '../components/WelcomeScreen'
 import { useChat } from '../hooks/useChat'
+import { useConversationList } from '../hooks/useConversationList'
 import { useOnboarding } from '../hooks/useOnboarding'
 import { buildAuthPayload, getAgentRole } from '../lib/authContext'
 
@@ -111,8 +113,40 @@ export function ChatPage() {
   const agentRole = useMemo(() => getAgentRole(), [])
   const { actorId, actorPhone } = useMemo(() => getActorHints(auth), [auth])
 
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   const onboarding = useOnboarding(auth, actorId, actorPhone)
   const chat = useChat(auth, agentRole, onboarding.isComplete)
+  const convList = useConversationList(auth, agentRole)
+
+  // Sync active conversation in sidebar
+  useEffect(() => {
+    if (chat.conversationId && chat.conversationId !== convList.activeId) {
+      convList.setActiveId(chat.conversationId)
+    }
+  }, [chat.conversationId])
+
+  const handleSelectConversation = useCallback((convId) => {
+    chat.switchConversation(convId)
+    convList.setActiveId(convId)
+    setSidebarOpen(false)
+  }, [chat, convList])
+
+  const handleNewChat = useCallback(async () => {
+    const data = await chat.startNewChat()
+    if (data) {
+      convList.addConversation({
+        id: data.conversation_id,
+        title: null,
+        agent_role: agentRole,
+        message_count: 0,
+        last_user_message: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      setSidebarOpen(false)
+    }
+  }, [chat, convList, agentRole])
 
   if (!auth) {
     return (
@@ -133,45 +167,7 @@ export function ChatPage() {
     return <WelcomeScreen subtitle={welcomeText} avatarProps={avatarProps(88)} error={onboarding.error} />
   }
 
-  // Phase 2: Onboarding
-  if (!onboarding.isComplete) {
-    return (
-      <main className="w-full h-dvh flex flex-col overflow-hidden">
-        <header className="flex items-center gap-3 px-5 py-3 pt-[calc(12px+env(safe-area-inset-top,0px))] bg-header backdrop-blur-[16px] border-b border-header-border shrink-0 z-10 max-sm:px-4">
-          <img className="w-10 h-10 rounded-full object-cover shrink-0 bg-surface-alt" alt="Эврика" {...avatarProps(40)} />
-          <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-base font-semibold leading-tight text-fg">Эврика</span>
-              <span className="w-2 h-2 rounded-full bg-status shrink-0 animate-[status-pulse_2s_infinite_ease-in-out]" />
-            </div>
-            <span className="text-[13px] text-fg-muted leading-tight">{headerSubtitle}</span>
-          </div>
-        </header>
-
-        <ChatWindow
-          messages={onboarding.messages}
-          avatarProps={avatarProps(28)}
-          typing={false}
-          onButtonClick={onboarding.handleButtonClick}
-          onFormSubmit={onboarding.handleFormSubmit}
-        />
-
-        {onboarding.error && (
-          <div className="px-4 py-3 mx-5 rounded-xl bg-error-bg text-error border border-error-border text-sm leading-normal shrink-0 max-sm:mx-3">
-            {onboarding.error}
-          </div>
-        )}
-
-        <div className="shrink-0 px-5 pt-3 pb-4 bg-input-area backdrop-blur-[16px] border-t border-input-area-border max-sm:px-3 max-sm:pt-2.5 max-sm:pb-3.5">
-          <div className="text-center text-[13px] text-fg-muted py-1">
-            Заполните данные выше для продолжения
-          </div>
-        </div>
-      </main>
-    )
-  }
-
-  // Phase 3: Chat
+  // Phase 2: Chat
   if (!chat.started) {
     return <WelcomeScreen subtitle={welcomeText} avatarProps={avatarProps(88)} error={chat.error} />
   }
@@ -182,30 +178,67 @@ export function ChatPage() {
   }
 
   return (
-    <main className="w-full h-dvh flex flex-col overflow-hidden">
-      <header className="flex items-center gap-3 px-5 py-3 pt-[calc(12px+env(safe-area-inset-top,0px))] bg-header backdrop-blur-[16px] border-b border-header-border shrink-0 z-10 max-sm:px-4">
-        <img className="w-10 h-10 rounded-full object-cover shrink-0 bg-surface-alt" alt="Эврика" {...avatarProps(40)} />
-        <div className="flex flex-col min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-base font-semibold leading-tight text-fg">Эврика</span>
-            <span className="w-2 h-2 rounded-full bg-status shrink-0 animate-[status-pulse_2s_infinite_ease-in-out]" />
+    <main className="w-full h-dvh flex overflow-hidden">
+      {/* Conversation Sidebar */}
+      <ConversationSidebar
+        conversations={convList.conversations}
+        activeId={convList.activeId}
+        loading={convList.loading}
+        searchQuery={convList.searchQuery}
+        hasMore={convList.hasMore}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onSelect={handleSelectConversation}
+        onNewChat={handleNewChat}
+        onArchive={convList.archive}
+        onRename={convList.rename}
+        onSearch={convList.search}
+        onLoadMore={convList.loadMore}
+      />
+
+      {/* Chat area */}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <header className="flex items-center gap-3 px-5 py-3 pt-[calc(12px+env(safe-area-inset-top,0px))] bg-header backdrop-blur-[16px] border-b border-header-border shrink-0 z-10 max-sm:px-4">
+          {/* Hamburger menu for mobile */}
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="sm:hidden p-1.5 -ml-1 rounded-lg hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="3" y1="5" x2="17" y2="5" />
+              <line x1="3" y1="10" x2="17" y2="10" />
+              <line x1="3" y1="15" x2="17" y2="15" />
+            </svg>
+          </button>
+
+          <img className="w-10 h-10 rounded-full object-cover shrink-0 bg-surface-alt" alt="Эврика" {...avatarProps(40)} />
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-base font-semibold leading-tight text-fg">Эврика</span>
+              <span className="w-2 h-2 rounded-full bg-status shrink-0 animate-[status-pulse_2s_infinite_ease-in-out]" />
+            </div>
+            <span className="text-[13px] text-fg-muted leading-tight">{headerSubtitle}</span>
           </div>
-          <span className="text-[13px] text-fg-muted leading-tight">{headerSubtitle}</span>
+        </header>
+
+        <EscalationBanner active={chat.escalated} reason={chat.escalationReason} />
+
+        <ChatWindow
+          messages={chat.messages}
+          avatarProps={avatarProps(28)}
+          typing={chat.typing}
+          onButtonClick={(value) => handleSend(value)}
+        />
+
+        {chat.error && (
+          <div className="px-4 py-3 mx-5 rounded-xl bg-error-bg text-error border border-error-border text-sm leading-normal shrink-0 max-sm:mx-3">
+            {chat.error}
+          </div>
+        )}
+
+        <div className="shrink-0 px-5 pt-3 pb-[calc(16px+env(safe-area-inset-bottom,0px))] bg-input-area backdrop-blur-[16px] border-t border-input-area-border max-sm:px-3 max-sm:pt-2.5">
+          <MessageInput disabled={chat.typing || chat.escalated} onSend={handleSend} />
         </div>
-      </header>
-
-      <EscalationBanner active={chat.escalated} reason={chat.escalationReason} />
-
-      <ChatWindow messages={chat.messages} avatarProps={avatarProps(28)} typing={chat.typing} />
-
-      {chat.error && (
-        <div className="px-4 py-3 mx-5 rounded-xl bg-error-bg text-error border border-error-border text-sm leading-normal shrink-0 max-sm:mx-3">
-          {chat.error}
-        </div>
-      )}
-
-      <div className="shrink-0 px-5 pt-3 pb-[calc(16px+env(safe-area-inset-bottom,0px))] bg-input-area backdrop-blur-[16px] border-t border-input-area-border max-sm:px-3 max-sm:pt-2.5">
-        <MessageInput disabled={chat.typing || chat.escalated} onSend={handleSend} />
       </div>
     </main>
   )

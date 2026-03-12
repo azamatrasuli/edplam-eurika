@@ -1,11 +1,12 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
   || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://127.0.0.1:8009'
-    : 'https://edpalm-eurika.onrender.com')
+    : 'https://edplam-eurika.onrender.com')
 
-export async function startConversation(auth, conversationId = null, agentRole = 'sales') {
+export async function startConversation(auth, conversationId = null, agentRole = 'sales', forceNew = false) {
   const body = { auth, agent_role: agentRole }
-  if (conversationId) body.conversation_id = conversationId
+  if (conversationId && !forceNew) body.conversation_id = conversationId
+  if (forceNew) body.force_new = true
   const response = await fetch(`${API_BASE_URL}/api/v1/conversations/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -139,4 +140,50 @@ export async function streamVoice({ auth, conversationId, audioBlob, agentRole =
   }
 
   await readSSEStream(response, onEvent)
+}
+
+// ---- Conversation History API -------------------------------------------
+
+export async function listConversations(auth, agentRole = null, { offset = 0, limit = 20, includeArchived = false } = {}) {
+  const body = { auth, offset, limit, include_archived: includeArchived }
+  if (agentRole) body.agent_role = agentRole
+  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/list`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) throw new Error(`Failed to list conversations (${response.status})`)
+  return response.json()
+}
+
+export async function archiveConversation(conversationId, auth) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/archive`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(auth),
+  })
+  if (!response.ok) throw new Error(`Failed to archive conversation (${response.status})`)
+  return response.json()
+}
+
+export async function renameConversation(conversationId, title, auth) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/rename`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ auth, title }),
+  })
+  if (!response.ok) throw new Error(`Failed to rename conversation (${response.status})`)
+  return response.json()
+}
+
+export async function searchConversations(auth, query, agentRole = null) {
+  const body = { auth, query }
+  if (agentRole) body.agent_role = agentRole
+  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) throw new Error(`Failed to search conversations (${response.status})`)
+  return response.json()
 }
