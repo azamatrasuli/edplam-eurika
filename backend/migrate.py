@@ -1,11 +1,9 @@
 """One-shot schema migration — runs SQL files against DATABASE_URL, then exits."""
-import asyncio
 import os
-import sys
-import asyncpg
+import psycopg
 
 
-async def main():
+def main():
     url = os.environ.get("DATABASE_URL")
     if not url:
         print("MIGRATE: DATABASE_URL not set, skipping")
@@ -20,19 +18,17 @@ async def main():
         return
 
     print(f"MIGRATE: applying {os.path.basename(schema_file)}...")
-    conn = await asyncpg.connect(url, ssl="prefer")
-    try:
+    with psycopg.connect(url) as conn:
         with open(schema_file) as f:
             sql = f.read()
-        await conn.execute(sql)
-        tables = await conn.fetch(
+        conn.execute(sql)
+        conn.commit()
+        rows = conn.execute(
             "SELECT table_name FROM information_schema.tables "
             "WHERE table_schema='public' ORDER BY table_name"
-        )
-        print(f"MIGRATE: done — {len(tables)} tables")
-    finally:
-        await conn.close()
+        ).fetchall()
+        print(f"MIGRATE: done — {len(rows)} tables")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
