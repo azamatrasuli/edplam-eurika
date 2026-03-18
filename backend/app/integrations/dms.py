@@ -220,10 +220,11 @@ class MockDMSService(DMSServiceBase):
         return []
 
     def get_products(self) -> list[DMSProduct]:
+        # DMS price field is in rubles (matches Tochka and order amounts)
         return [
-            DMSProduct(product_id=1, uuid="mock-uuid-1", name="Экстернат Базовый 5 класс", price_kopecks=3500000, grade=5),
-            DMSProduct(product_id=2, uuid="mock-uuid-2", name="Экстернат Классный 5 класс", price_kopecks=5450000, grade=5),
-            DMSProduct(product_id=3, uuid="mock-uuid-3", name="Экстернат Классный 7 класс", price_kopecks=5450000, grade=7),
+            DMSProduct(product_id=1, uuid="mock-uuid-1", name="Экстернат Базовый 5 класс", price_kopecks=35000, grade=5),
+            DMSProduct(product_id=2, uuid="mock-uuid-2", name="Экстернат Классный 5 класс", price_kopecks=54500, grade=5),
+            DMSProduct(product_id=3, uuid="mock-uuid-3", name="Экстернат Классный 7 класс", price_kopecks=54500, grade=7),
         ]
 
     def create_order(self, payer: "DMSContact", student: "DMSStudent",

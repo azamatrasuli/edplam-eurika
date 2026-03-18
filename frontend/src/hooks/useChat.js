@@ -190,11 +190,12 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
             setEscalationReason(payload.reason || '')
           }
 
-          if (event === 'suggestions') {
-            setSuggestions(
-              (payload.chips || []).slice(0, 4).map(c => ({ label: c.label, value: c.value }))
-            )
-          }
+          // Suggestion chips disabled — pure live conversation
+          // if (event === 'suggestions') {
+          //   setSuggestions(
+          //     (payload.chips || []).slice(0, 4).map(c => ({ label: c.label, value: c.value }))
+          //   )
+          // }
 
           if (event === 'done') {
             setTyping(false)

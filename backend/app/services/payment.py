@@ -106,13 +106,15 @@ class PaymentService:
             }
 
         # 5. Save to DB
-        amount_rub = product.price_kopecks / 100
+        # DMS price field is in rubles (not kopecks despite the field name);
+        # display value matches what Tochka charges.
+        amount_rub = product.price_kopecks
         try:
             db_id = self.repo.save_payment_order(
                 conversation_id=conversation_id,
                 actor_id=actor_id,
                 dms_order_uuid=order.order_uuid,
-                dms_contact_id=payer_contact_id,
+                dms_contact_id=payer_contact.contact_id,
                 product_name=product.name,
                 product_uuid=product.uuid,
                 amount_kopecks=product.price_kopecks,
@@ -216,7 +218,8 @@ def check_pending_payments() -> None:
 
                 # Save confirmation message in conversation
                 product = order.get("product_name", "Обучение")
-                amount = order.get("amount_kopecks", 0) / 100
+                # amount_kopecks is actually in rubles (DMS convention)
+                amount = order.get("amount_kopecks", 0)
                 amount_str = f"{amount:,.0f}".replace(",", " ")
                 repo.save_message(
                     conversation_id=order["conversation_id"],

@@ -17,7 +17,7 @@ export function PaymentCard({ data }) {
           href={payment_url}
           target="_blank"
           rel="noreferrer"
-          className="block w-full text-center py-2.5 rounded-lg bg-brand text-white font-medium hover:opacity-90 transition"
+          className="block w-full text-center py-2.5 rounded-lg bg-brand !text-white font-medium no-underline hover:opacity-90 transition"
         >
           Оплатить
         </a>

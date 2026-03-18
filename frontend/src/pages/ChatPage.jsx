@@ -3,7 +3,8 @@ import { ChatWindow } from '../components/ChatWindow'
 import { ConversationSidebar } from '../components/ConversationSidebar'
 import { EscalationBanner } from '../components/EscalationBanner'
 import { MessageInput } from '../components/MessageInput'
-import { SuggestionChips } from '../components/SuggestionChips'
+// SuggestionChips disabled — pure live conversation
+// import { SuggestionChips } from '../components/SuggestionChips'
 import { WelcomeScreen } from '../components/WelcomeScreen'
 import { useChat } from '../hooks/useChat'
 import { useConversationList } from '../hooks/useConversationList'
@@ -241,13 +242,7 @@ export function ChatPage() {
           onButtonClick={(value) => handleSend(value)}
         />
 
-        <SuggestionChips
-          chips={chat.suggestions}
-          onSelect={(value) => {
-            handleSend(value)
-            chat.clearSuggestions()
-          }}
-        />
+        {/* SuggestionChips disabled — pure live conversation */}
 
         {chat.error && (
           <div className="px-4 py-3 mx-5 rounded-xl bg-error-bg text-error border border-error-border text-sm leading-normal shrink-0 max-sm:mx-3">
