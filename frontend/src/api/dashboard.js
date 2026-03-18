@@ -1,7 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
   || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://127.0.0.1:8009'
-    : 'https://edpalm-eurika.onrender.com')
+    : 'https://edplam-eurika.onrender.com')
 
 function getDashboardKey() {
   const params = new URLSearchParams(window.location.search)

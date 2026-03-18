@@ -12,7 +12,7 @@ from app.config import get_settings
 logger = logging.getLogger("api.telegram")
 router = APIRouter(tags=["telegram"])
 
-FRONTEND_URL = "https://edpalm-eurika.vercel.app"
+FRONTEND_URL = "https://frontend-kappa-two-17.vercel.app"
 
 
 def _send_message(bot_token: str, chat_id: int, text: str, reply_markup: dict | None = None) -> None:
