@@ -35,5 +35,11 @@ export function buildAuthPayload() {
     return { external_token: externalToken }
   }
 
-  return null
+  // Guest mode — anonymous access, agent qualifies in conversation
+  let guestId = sessionStorage.getItem('eurika_guest_id')
+  if (!guestId) {
+    guestId = crypto.randomUUID()
+    sessionStorage.setItem('eurika_guest_id', guestId)
+  }
+  return { guest_id: guestId }
 }

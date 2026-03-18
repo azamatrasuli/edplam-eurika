@@ -4,13 +4,14 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class Channel(str, Enum):
     portal = "portal"
     telegram = "telegram"
     external = "external"
+    guest = "guest"
 
 
 class AgentRole(str, Enum):
@@ -22,6 +23,7 @@ class AuthPayload(BaseModel):
     portal_token: str | None = None
     telegram_init_data: str | None = None
     external_token: str | None = None
+    guest_id: str | None = None
 
 
 class ActorContext(BaseModel):
@@ -31,6 +33,14 @@ class ActorContext(BaseModel):
     phone: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     agent_role: AgentRole = AgentRole.sales
+
+    @model_validator(mode="after")
+    def _sanitize_display_name(self):
+        """Strip HTML tags from display_name to prevent XSS."""
+        if self.display_name:
+            import re
+            self.display_name = re.sub(r"<[^>]*>", "", self.display_name).strip() or None
+        return self
 
 
 class StartConversationRequest(BaseModel):

@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from app.auth.external import ExternalLinkAuth
 from app.auth.portal import PortalAuth
 from app.auth.telegram import TelegramAuth
-from app.models.chat import ActorContext, AuthPayload
+from app.models.chat import ActorContext, AuthPayload, Channel
 
 
 class AuthService:
@@ -19,6 +19,7 @@ class AuthService:
             bool(auth.portal_token),
             bool(auth.telegram_init_data),
             bool(auth.external_token),
+            bool(auth.guest_id),
         ]
         if sum(provided) != 1:
             raise HTTPException(
@@ -32,5 +33,13 @@ class AuthService:
             return self.telegram_auth.resolve(auth.telegram_init_data)
         if auth.external_token:
             return self.external_auth.resolve(auth.external_token)
+        if auth.guest_id:
+            return ActorContext(
+                channel=Channel.guest,
+                actor_id=f"guest:{auth.guest_id}",
+                display_name=None,
+                phone=None,
+                metadata={},
+            )
 
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Auth payload is empty")

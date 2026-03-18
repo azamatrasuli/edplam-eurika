@@ -159,13 +159,7 @@ export function ChatPage() {
     }
   }, [chat, convList, agentRole, isCreating])
 
-  if (!auth) {
-    return (
-      <div className="px-4 py-3 mx-5 rounded-xl bg-error-bg text-error border border-error-border text-sm leading-normal shrink-0">
-        Не найден токен входа. Откройте чат из портала, Telegram или внешней ссылки.
-      </div>
-    )
-  }
+  // auth is always available (guest fallback), no blocking screen needed
 
   const isSupport = agentRole === 'support'
   const headerSubtitle = isSupport ? 'Служба поддержки EdPalm' : 'AI менеджер EdPalm'
