@@ -478,12 +478,13 @@ class RealDMSService(DMSServiceBase):
                 logger.error("DMS create_order failed: %d %s", resp.status_code, resp.text)
                 return None
             data = resp.json()
-            order_uuid = data.get("uuid", "")
+            order_data = data.get("order", data)
+            order_uuid = order_data.get("uuid", "")
             logger.info("DMS: created order uuid=%s", order_uuid)
             return DMSOrder(
                 order_uuid=order_uuid,
-                order_id=data.get("id"),
-                status=data.get("status", 0),
+                order_id=order_data.get("id"),
+                status=order_data.get("status", 0),
                 amount_kopecks=amount_kopecks,
             )
         except Exception:
