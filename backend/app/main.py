@@ -35,8 +35,24 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="EdPalm AI Seller API", version="0.1.0", lifespan=lifespan)
 
+def _is_allowed_origin(origin: str) -> bool:
+    """Check if origin is allowed — supports .vercel.app wildcard."""
+    if origin in settings.cors_origins:
+        return True
+    if origin.endswith(".vercel.app") and origin.startswith("https://"):
+        return True
+    return False
+
+
+class DynamicCORSMiddleware(CORSMiddleware):
+    """CORS middleware that allows any *.vercel.app origin dynamically."""
+
+    def is_allowed_origin(self, origin: str) -> bool:
+        return _is_allowed_origin(origin)
+
+
 app.add_middleware(
-    CORSMiddleware,
+    DynamicCORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
