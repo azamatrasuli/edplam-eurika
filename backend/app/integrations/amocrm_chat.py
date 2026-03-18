@@ -216,6 +216,9 @@ class AmoCRMChatClient:
         text: str,
         is_bot: bool = False,
         sender_phone: str | None = None,
+        receiver_id: str | None = None,
+        receiver_name: str | None = None,
+        receiver_phone: str | None = None,
     ) -> ChatSendResult:
         logger.info(
             "[send_message] conv=%s sender=%s is_bot=%s text=%s",
@@ -233,26 +236,35 @@ class AmoCRMChatClient:
             return ChatSendResult(success=False, error="no scope_id")
 
         now = int(time.time())
+        now_ms = int(time.time() * 1000)
         prefix = "agent_bot" if is_bot else "agent_user"
-        msgid = f"{prefix}_{now}_{int(time.time() * 1000) % 1000}"
+        msgid = f"{prefix}_{now}_{now_ms % 1000}"
 
         sender: dict[str, Any] = {"id": sender_id, "name": sender_name}
         if sender_phone:
             sender["profile"] = {"phone": sender_phone}
 
-        # Payload aligned with working Node.js bot:
-        # - no msec_timestamp (bot removed it)
-        # - silent: false for user messages, true for bot messages
+        inner: dict[str, Any] = {
+            "timestamp": now,
+            "msec_timestamp": now_ms,
+            "msgid": msgid,
+            "conversation_id": conversation_id,
+            "sender": sender,
+            "message": {"type": "text", "text": text},
+            "silent": False,
+        }
+
+        # Outgoing (bot) messages require a "receiver" field per amoCRM Chat API docs.
+        # Without it, amoCRM ignores the message in the imBox thread.
+        if is_bot and receiver_id:
+            receiver: dict[str, Any] = {"id": receiver_id, "name": receiver_name or "Клиент"}
+            if receiver_phone:
+                receiver["profile"] = {"phone": receiver_phone}
+            inner["receiver"] = receiver
+
         payload: dict[str, Any] = {
             "event_type": "new_message",
-            "payload": {
-                "timestamp": now,
-                "msgid": msgid,
-                "conversation_id": conversation_id,
-                "sender": sender,
-                "message": {"type": "text", "text": text},
-                "silent": is_bot,
-            },
+            "payload": inner,
         }
 
         path = f"/v2/origin/custom/{scope_id}"

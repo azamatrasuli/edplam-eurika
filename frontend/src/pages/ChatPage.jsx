@@ -3,6 +3,7 @@ import { ChatWindow } from '../components/ChatWindow'
 import { ConversationSidebar } from '../components/ConversationSidebar'
 import { EscalationBanner } from '../components/EscalationBanner'
 import { MessageInput } from '../components/MessageInput'
+import { SuggestionChips } from '../components/SuggestionChips'
 import { WelcomeScreen } from '../components/WelcomeScreen'
 import { useChat } from '../hooks/useChat'
 import { useConversationList } from '../hooks/useConversationList'
@@ -114,6 +115,7 @@ export function ChatPage() {
   const { actorId, actorPhone } = useMemo(() => getActorHints(auth), [auth])
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
 
   const onboarding = useOnboarding(auth, actorId, actorPhone)
   const chat = useChat(auth, agentRole, onboarding.isComplete)
@@ -135,20 +137,26 @@ export function ChatPage() {
   }, [chat, convList])
 
   const handleNewChat = useCallback(async () => {
-    const data = await chat.startNewChat()
-    if (data) {
-      convList.addConversation({
-        id: data.conversation_id,
-        title: null,
-        agent_role: agentRole,
-        message_count: 0,
-        last_user_message: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      setSidebarOpen(false)
+    if (isCreating) return
+    setIsCreating(true)
+    try {
+      const data = await chat.startNewChat()
+      if (data) {
+        convList.addConversation({
+          id: data.conversation_id,
+          title: null,
+          agent_role: agentRole,
+          message_count: 0,
+          last_user_message: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        setSidebarOpen(false)
+      }
+    } finally {
+      setIsCreating(false)
     }
-  }, [chat, convList, agentRole])
+  }, [chat, convList, agentRole, isCreating])
 
   if (!auth) {
     return (
@@ -189,6 +197,7 @@ export function ChatPage() {
         searchQuery={convList.searchQuery}
         hasMore={convList.hasMore}
         isOpen={sidebarOpen}
+        isCreating={isCreating}
         onClose={() => setSidebarOpen(false)}
         onSelect={handleSelectConversation}
         onNewChat={handleNewChat}
@@ -232,6 +241,14 @@ export function ChatPage() {
           onButtonClick={(value) => handleSend(value)}
         />
 
+        <SuggestionChips
+          chips={chat.suggestions}
+          onSelect={(value) => {
+            handleSend(value)
+            chat.clearSuggestions()
+          }}
+        />
+
         {chat.error && (
           <div className="px-4 py-3 mx-5 rounded-xl bg-error-bg text-error border border-error-border text-sm leading-normal shrink-0 max-sm:mx-3">
             {chat.error}
@@ -239,7 +256,7 @@ export function ChatPage() {
         )}
 
         <div className="shrink-0 px-5 pt-3 pb-[calc(16px+env(safe-area-inset-bottom,0px))] bg-input-area backdrop-blur-[16px] border-t border-input-area-border max-sm:px-3 max-sm:pt-2.5">
-          <MessageInput disabled={chat.typing || chat.escalated} onSend={handleSend} />
+          <MessageInput disabled={chat.typing || chat.escalated} onSend={handleSend} auth={auth} onTypingStart={chat.clearSuggestions} />
         </div>
       </div>
     </main>

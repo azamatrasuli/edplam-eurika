@@ -27,6 +27,7 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
   const [started, setStarted] = useState(false)
   const [escalated, setEscalated] = useState(false)
   const [escalationReason, setEscalationReason] = useState('')
+  const [suggestions, setSuggestions] = useState([])
   const abortRef = useRef(null)
   const initRef = useRef(false)
   const conversationIdRef = useRef(conversationId)
@@ -75,24 +76,17 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
         }
       }
 
-      // Build greeting + quick reply buttons
+      // Build greeting
       const greeting = data?.greeting || 'Привет! Я Эврика из EdPalm. Чем могу помочь?'
       const initMessages = [
         { id: crypto.randomUUID(), role: 'assistant', content: greeting },
       ]
 
-      // Add quick reply buttons for new conversations
-      const replies = QUICK_REPLIES[agentRole] || QUICK_REPLIES.sales
-      initMessages.push({
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: '',
-        type: 'buttons',
-        buttons: replies,
-        disabled: false,
-      })
-
       setMessages(initMessages)
+
+      // Suggestion chips disabled — pure live conversation
+      // const replies = QUICK_REPLIES[agentRole] || QUICK_REPLIES.sales
+      // setSuggestions(replies.map(r => ({ label: r.label, value: r.value })))
       setStarted(true)
       return data
     } catch (e) {
@@ -142,10 +136,7 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
     const currentConvId = conversationIdRef.current
     if (!text.trim() || !auth || !currentConvId || typing || escalated) return
 
-    // Disable any active quick reply buttons
-    setMessages((prev) =>
-      prev.map((m) => (m.type === 'buttons' && !m.disabled ? { ...m, disabled: true } : m)),
-    )
+    setSuggestions([])
 
     const userMsg = { id: crypto.randomUUID(), role: 'user', content: text }
     const assistantId = crypto.randomUUID()
@@ -199,6 +190,12 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
             setEscalationReason(payload.reason || '')
           }
 
+          if (event === 'suggestions') {
+            setSuggestions(
+              (payload.chips || []).slice(0, 4).map(c => ({ label: c.label, value: c.value }))
+            )
+          }
+
           if (event === 'done') {
             setTyping(false)
           }
@@ -224,6 +221,8 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
     }
   }, [auth, agentRole, typing, escalated])
 
+  const clearSuggestions = useCallback(() => setSuggestions([]), [])
+
   return {
     messages,
     conversationId,
@@ -235,5 +234,7 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
     escalationReason,
     switchConversation,
     startNewChat,
+    suggestions,
+    clearSuggestions,
   }
 }

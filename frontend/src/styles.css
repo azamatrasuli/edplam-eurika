@@ -206,6 +206,28 @@ body {
 }
 
 /* ================================================================
+   Suggestion chips
+   ================================================================ */
+
+@keyframes chip-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.chip-enter {
+  opacity: 0;
+  animation: chip-enter 0.25s ease-out forwards;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ================================================================
    Markdown prose inside assistant bubbles
    ================================================================ */
 

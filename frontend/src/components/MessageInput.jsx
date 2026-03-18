@@ -2,11 +2,12 @@ import { useCallback, useRef, useState } from 'react'
 import { transcribeAudio } from '../api/client'
 import { VoiceRecorder } from './VoiceRecorder'
 
-export function MessageInput({ disabled, onSend }) {
+export function MessageInput({ disabled, onSend, auth, onTypingStart }) {
   const [text, setText] = useState('')
   const [voiceMode, setVoiceMode] = useState('idle') // 'idle' | 'recording' | 'transcribing'
   const [micError, setMicError] = useState('')
   const textareaRef = useRef(null)
+  const wasEmptyRef = useRef(true)
 
   function submit() {
     const value = text.trim()
@@ -34,7 +35,7 @@ export function MessageInput({ disabled, onSend }) {
   const handleVoiceDone = useCallback(async (blob) => {
     setVoiceMode('transcribing')
     try {
-      const transcript = await transcribeAudio(blob)
+      const transcript = await transcribeAudio(blob, auth)
       setText((prev) => {
         if (!transcript) return prev
         return prev ? `${prev} ${transcript}` : transcript
@@ -93,7 +94,15 @@ export function MessageInput({ disabled, onSend }) {
           ref={textareaRef}
           className="flex-1 border-none py-2 resize-none text-[15px] bg-transparent text-fg leading-[1.4] min-h-6 max-h-30 outline-none placeholder:text-fg-muted placeholder:opacity-60"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value
+            setText(val)
+            if (wasEmptyRef.current && val.trim()) {
+              wasEmptyRef.current = false
+              onTypingStart?.()
+            }
+            if (!val.trim()) wasEmptyRef.current = true
+          }}
           onKeyDown={onKeyDown}
           placeholder="Напишите сообщение..."
           rows={1}

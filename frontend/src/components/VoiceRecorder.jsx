@@ -91,13 +91,15 @@ export function VoiceRecorder({ onDone, onCancel }) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function cleanup() {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    if (timerRef.current) clearInterval(timerRef.current)
-    if (audioCtxRef.current) {
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
       try { audioCtxRef.current.close() } catch { /* */ }
     }
+    audioCtxRef.current = null
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
     }
   }
 

@@ -155,6 +155,22 @@ def _make_stream(
 
     yield _sse("done", {"text": answer, "usage_tokens": usage_tokens})
 
+    # Suggestion chips disabled — pure live conversation
+    # When re-enabled: generates 2-3 contextual chips via gpt-4o-mini
+    # try:
+    #     agent_role_str = getattr(actor, "agent_role", "sales")
+    #     if hasattr(agent_role_str, "value"):
+    #         agent_role_str = agent_role_str.value
+    #     suggestions = chat_service.llm.generate_suggestions(
+    #         assistant_text=answer,
+    #         user_text=user_text,
+    #         agent_role=str(agent_role_str),
+    #     )
+    #     if suggestions:
+    #         yield _sse("suggestions", {"chips": suggestions})
+    # except Exception:
+    #     logger.debug("Suggestion generation failed", exc_info=True)
+
 
 # ---- endpoints -----------------------------------------------------------
 

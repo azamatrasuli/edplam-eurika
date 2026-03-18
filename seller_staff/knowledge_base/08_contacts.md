@@ -4,7 +4,8 @@
 
 | Канал | Контакт |
 |---|---|
-| Сайт | https://hss.center |
+| Сайт ЦПСО | https://hss.center |
+| Сайт EdPalm | https://edpalm-exam.online |
 | Платформа | https://edpalm-exam.online |
 | Телефон (бесплатный) | 8-800-555-02-99 |
 | Email | info@hss.center |

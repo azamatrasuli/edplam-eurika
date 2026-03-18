@@ -96,9 +96,10 @@ export async function streamChat({ auth, conversationId, message, agentRole = 's
   await readSSEStream(response, onEvent)
 }
 
-export async function transcribeAudio(audioBlob) {
+export async function transcribeAudio(audioBlob, auth) {
   const formData = new FormData()
   formData.append('audio', audioBlob, 'voice.webm')
+  if (auth) formData.append('auth_json', JSON.stringify(auth))
   const response = await fetch(`${API_BASE_URL}/api/v1/chat/transcribe`, {
     method: 'POST',
     body: formData,

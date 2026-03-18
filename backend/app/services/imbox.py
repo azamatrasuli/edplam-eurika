@@ -165,9 +165,12 @@ class ImBoxService:
             result = self.client.send_message(
                 conversation_id=conv_id,
                 sender_id="eurika_bot",
-                sender_name="Эврика (AI Agent)",
+                sender_name="Эврика",
                 text=text,
                 is_bot=True,
+                receiver_id=actor.actor_id,
+                receiver_name=actor.display_name or "Клиент EdPalm",
+                receiver_phone=actor.phone,
             )
             logger.info(
                 "[forward_agent] result: success=%s msgid=%s error=%s",

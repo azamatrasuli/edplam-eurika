@@ -277,3 +277,58 @@ class LLMService:
         for ch in fallback:
             yield LLMChunk(token=ch)
         return LLMResult(text=fallback, usage_tokens=None)
+
+    # ---- suggestion chips generation ----------------------------------------
+
+    def generate_suggestions(
+        self,
+        assistant_text: str,
+        user_text: str,
+        agent_role: str = "sales",
+    ) -> list[dict] | None:
+        """Generate 2-3 contextual suggestion chips based on the last exchange."""
+        if not self.client:
+            return None
+
+        role_hint = "менеджер по продажам" if agent_role == "sales" else "менеджер поддержки"
+
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            f"Ты помощник {role_hint} в онлайн-школе EdPalm. "
+                            "Проанализируй последний обмен репликами и предложи 2-3 кнопки быстрых ответов "
+                            "для клиента. Формулируй от первого лица (как если бы клиент нажимал). "
+                            "Кнопки должны быть короткими (2-5 слов). "
+                            "Верни JSON массив: [{\"label\": \"текст кнопки\", \"value\": \"полное сообщение\"}]. "
+                            "label — текст на кнопке, value — полное сообщение которое отправится. "
+                            "Если дальнейшие вопросы неуместны (прощание, оплата завершена) — верни пустой массив []."
+                        ),
+                    },
+                    {"role": "user", "content": user_text},
+                    {"role": "assistant", "content": assistant_text[:1000]},
+                    {"role": "user", "content": "Предложи кнопки быстрых ответов."},
+                ],
+                temperature=0.3,
+                max_tokens=200,
+                timeout=5,
+            )
+
+            raw = response.choices[0].message.content.strip()
+            # Handle markdown code blocks
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+                raw = raw.strip()
+
+            chips = json.loads(raw)
+            if isinstance(chips, list) and len(chips) <= 4:
+                return [c for c in chips if isinstance(c, dict) and "label" in c and "value" in c][:3]
+            return None
+        except Exception:
+            logger.debug("Suggestion generation failed", exc_info=True)
+            return None
