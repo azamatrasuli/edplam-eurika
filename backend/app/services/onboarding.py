@@ -113,11 +113,11 @@ class OnboardingService:
         logger.info("Auto-saved DMS profile for actor=%s phone=%s", actor_id, norm_phone)
         return True
 
-    def get_profile_context_for_llm(self, actor_id: str) -> str:
+    def get_profile_context_for_llm(self, actor_id: str) -> str | None:
         """Build context string for injection into LLM system messages."""
         profile = self.check_profile(actor_id)
         if not profile:
-            return ""
+            return None
 
         client_type_ru = "действующий клиент" if profile.client_type == "existing" else "новый клиент"
         role_ru = "родитель" if profile.user_role == "parent" else "ученик"

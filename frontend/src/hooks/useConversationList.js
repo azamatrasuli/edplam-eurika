@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   archiveConversation as apiArchive,
+  deleteConversation as apiDelete,
   listConversations,
   renameConversation as apiRename,
   searchConversations,
+  unarchiveConversation as apiUnarchive,
 } from '../api/client'
 
 export function useConversationList(auth, agentRole = 'sales') {
@@ -14,6 +16,10 @@ export function useConversationList(auth, agentRole = 'sales') {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeId, setActiveId] = useState(null)
   const offsetRef = useRef(0)
+
+  // Undo archive state
+  const [archiveToast, setArchiveToast] = useState(null) // { id, conversation, title }
+  const undoTimerRef = useRef(null)
 
   const load = useCallback(async (reset = false) => {
     if (!auth) return
@@ -70,15 +76,95 @@ export function useConversationList(auth, agentRole = 'sales') {
   }, [auth, agentRole, load])
 
   const archive = useCallback(async (conversationId) => {
+    // Save conversation data for undo
+    const conv = conversations.find((c) => c.id === conversationId)
+    const convIndex = conversations.findIndex((c) => c.id === conversationId)
+
+    // Optimistically remove from list
+    setConversations((prev) => prev.filter((c) => c.id !== conversationId))
+    setTotal((prev) => prev - 1)
+
+    const wasActive = activeId === conversationId
+    if (wasActive) setActiveId(null)
+
     try {
       await apiArchive(conversationId, auth)
-      setConversations((prev) => prev.filter((c) => c.id !== conversationId))
-      setTotal((prev) => prev - 1)
-      if (activeId === conversationId) setActiveId(null)
+
+      // Show toast with undo
+      clearTimeout(undoTimerRef.current)
+      setArchiveToast({
+        id: conversationId,
+        conversation: conv,
+        index: convIndex,
+        title: conv?.title || conv?.last_user_message || null,
+        wasActive,
+      })
     } catch (e) {
+      // Restore on failure
       console.error('Failed to archive conversation:', e)
+      if (conv) {
+        setConversations((prev) => {
+          const next = [...prev]
+          next.splice(convIndex, 0, conv)
+          return next
+        })
+        setTotal((prev) => prev + 1)
+        if (wasActive) setActiveId(conversationId)
+      }
     }
-  }, [auth, activeId])
+  }, [auth, activeId, conversations])
+
+  const undoArchive = useCallback(async () => {
+    if (!archiveToast) return
+
+    const { id, conversation, index, wasActive } = archiveToast
+    setArchiveToast(null)
+    clearTimeout(undoTimerRef.current)
+
+    try {
+      await apiUnarchive(id, auth)
+      // Restore to original position
+      setConversations((prev) => {
+        const next = [...prev]
+        const insertAt = Math.min(index, next.length)
+        next.splice(insertAt, 0, conversation)
+        return next
+      })
+      setTotal((prev) => prev + 1)
+      if (wasActive) setActiveId(id)
+    } catch (e) {
+      console.error('Failed to unarchive conversation:', e)
+    }
+  }, [auth, archiveToast])
+
+  const dismissArchiveToast = useCallback(() => {
+    setArchiveToast(null)
+  }, [])
+
+  const deleteConversation = useCallback(async (conversationId) => {
+    const conv = conversations.find((c) => c.id === conversationId)
+    const convIndex = conversations.findIndex((c) => c.id === conversationId)
+
+    // Optimistically remove
+    setConversations((prev) => prev.filter((c) => c.id !== conversationId))
+    setTotal((prev) => prev - 1)
+    if (activeId === conversationId) setActiveId(null)
+
+    try {
+      await apiDelete(conversationId, auth)
+    } catch (e) {
+      console.error('Failed to delete conversation:', e)
+      // Restore on failure
+      if (conv) {
+        setConversations((prev) => {
+          const next = [...prev]
+          next.splice(convIndex, 0, conv)
+          return next
+        })
+        setTotal((prev) => prev + 1)
+      }
+    }
+  }, [auth, activeId, conversations])
 
   const rename = useCallback(async (conversationId, title) => {
     try {
@@ -117,8 +203,12 @@ export function useConversationList(auth, agentRole = 'sales') {
     loadMore,
     search,
     archive,
+    undoArchive,
+    archiveToast,
+    dismissArchiveToast,
+    deleteConversation,
     rename,
     addConversation,
     updateTitle,
-  }), [conversations, total, hasMore, loading, searchQuery, activeId, refresh, loadMore, search, archive, rename, addConversation, updateTitle])
+  }), [conversations, total, hasMore, loading, searchQuery, activeId, refresh, loadMore, search, archive, undoArchive, archiveToast, dismissArchiveToast, deleteConversation, rename, addConversation, updateTitle])
 }

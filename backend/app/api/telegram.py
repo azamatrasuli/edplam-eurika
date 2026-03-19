@@ -12,8 +12,6 @@ from app.config import get_settings
 logger = logging.getLogger("api.telegram")
 router = APIRouter(tags=["telegram"])
 
-FRONTEND_URL = "https://frontend-kappa-two-17.vercel.app"
-
 
 def _send_message(bot_token: str, chat_id: int, text: str, reply_markup: dict | None = None) -> None:
     payload: dict = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
@@ -59,7 +57,7 @@ async def telegram_webhook(token: str, request: Request):
             f"Нажми кнопку ниже, чтобы начать 👇",
             reply_markup={
                 "inline_keyboard": [[
-                    {"text": "🚀 Открыть Эврику", "web_app": {"url": FRONTEND_URL}}
+                    {"text": "🚀 Открыть Эврику", "web_app": {"url": settings.frontend_url}}
                 ]]
             },
         )

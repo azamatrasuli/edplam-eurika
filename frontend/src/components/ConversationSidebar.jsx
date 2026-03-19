@@ -20,6 +20,7 @@ export function ConversationSidebar({
   onSelect,
   onNewChat,
   onArchive,
+  onDelete,
   onRename,
   onSearch,
   onLoadMore,
@@ -131,6 +132,7 @@ export function ConversationSidebar({
             isActive={conv.id === activeId}
             onSelect={onSelect}
             onArchive={onArchive}
+            onDelete={onDelete}
             onRename={onRename}
           />
         ))}

@@ -63,7 +63,7 @@ class TelegramAuth:
         if not tg_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram user id is missing")
 
-        display_name = " ".join(filter(None, [user.get("first_name"), user.get("last_name")])).strip() or user.get("username")
+        display_name = " ".join(filter(None, [user.get("first_name"), user.get("last_name")])).strip() or None
 
         return ActorContext(
             channel=Channel.telegram,

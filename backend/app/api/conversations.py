@@ -89,6 +89,15 @@ def archive_conversation(conversation_id: str, auth: AuthPayload):
     return {"status": "archived", "conversation_id": conversation_id}
 
 
+@router.post("/{conversation_id}/unarchive")
+def unarchive_conversation(conversation_id: str, auth: AuthPayload):
+    actor = auth_service.resolve(auth)
+    ok = repo.unarchive_conversation(conversation_id, actor.actor_id)
+    if not ok:
+        raise HTTPException(404, "Conversation not found or not archived")
+    return {"status": "unarchived", "conversation_id": conversation_id}
+
+
 @router.post("/{conversation_id}/rename")
 def rename_conversation(conversation_id: str, req: ConversationRenameRequest):
     actor = auth_service.resolve(req.auth)

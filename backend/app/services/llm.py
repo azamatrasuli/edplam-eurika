@@ -82,7 +82,7 @@ class LLMService:
                 if "Источник:" in result and "не найдено" not in result.lower():
                     return (
                         "Вот что я нашла в базе знаний:\n\n"
-                        + result[:1500]
+                        + result[:3000]
                         + "\n\nЕсли нужна дополнительная информация — спрашивайте!"
                     )
         return None
@@ -156,6 +156,7 @@ class LLMService:
 
         while iteration < self.MAX_TOOL_ITERATIONS:
             try:
+                logger.info("LLM iteration %d starting (messages=%d, tools=%s)", iteration, len(messages), bool(tool_executor))
                 create_kwargs: dict[str, Any] = {
                     "model": self.settings.openai_model,
                     "messages": messages,
@@ -264,6 +265,7 @@ class LLMService:
                         })
 
                     iteration += 1
+                    logger.info("Tool iteration done, moving to iteration %d (messages=%d)", iteration, len(messages))
                     continue  # next iteration — OpenAI will respond with text
 
                 # Edge case: no text and no tool calls
@@ -293,12 +295,15 @@ class LLMService:
                         yield LLMChunk(token=ch)
                     return LLMResult(text=fallback, usage_tokens=None,
                                      rag_metadata={"tool_calls": all_tool_calls_made, "escalation": escalation_triggered})
-                retry_after = getattr(e, "retry_after", None) or 5
+                retry_after = getattr(e, "retry_after", None)
+                if retry_after is None:
+                    # Exponential backoff: 5s, 10s, 20s
+                    retry_after = min(5 * (2 ** (rate_limit_retries - 1)), 30)
                 logger.warning(
                     "Rate limit on iteration %d (retry %d/%d), waiting %.1fs",
                     iteration, rate_limit_retries, max_rate_limit_retries, retry_after,
                 )
-                time.sleep(min(retry_after, 10))
+                time.sleep(min(retry_after, 30))
                 continue  # retry same iteration (iteration NOT incremented)
 
             except Exception:
@@ -351,7 +356,7 @@ class LLMService:
                 ],
                 temperature=0.3,
                 max_tokens=200,
-                timeout=5,
+                timeout=15,
             )
 
             raw = response.choices[0].message.content.strip()

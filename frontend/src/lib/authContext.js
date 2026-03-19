@@ -1,5 +1,3 @@
-import WebApp from '@twa-dev/sdk'
-
 function getQueryParam(name) {
   // Check regular query string first (?token=...), then hash query (/#/?role=...)
   const params = new URLSearchParams(window.location.search)
@@ -16,6 +14,14 @@ function getQueryParam(name) {
   return null
 }
 
+function getTelegramWebApp() {
+  try {
+    return window.Telegram?.WebApp || null
+  } catch {
+    return null
+  }
+}
+
 export function getAgentRole() {
   const role = getQueryParam('role')
   return role === 'support' ? 'support' : 'sales'
@@ -29,17 +35,18 @@ export function buildAuthPayload() {
     return { portal_token: portalToken }
   }
 
-  if (window.Telegram?.WebApp && WebApp.initData) {
+  const tgWebApp = getTelegramWebApp()
+  if (tgWebApp && tgWebApp.initData) {
     try {
-      WebApp.ready()
-      WebApp.expand()
-      if (WebApp.colorScheme === 'dark') {
+      tgWebApp.ready()
+      tgWebApp.expand()
+      if (tgWebApp.colorScheme === 'dark') {
         document.documentElement.setAttribute('data-theme', 'dark')
       }
     } catch {
       // no-op
     }
-    return { telegram_init_data: WebApp.initData }
+    return { telegram_init_data: tgWebApp.initData }
   }
 
   if (externalToken) {

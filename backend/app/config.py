@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     openai_model: str = Field(default="gpt-4o", alias="OPENAI_MODEL")
     openai_embedding_model: str = Field(default="text-embedding-3-small", alias="OPENAI_EMBEDDING_MODEL")
     openai_request_timeout_seconds: int = Field(default=40, alias="OPENAI_REQUEST_TIMEOUT_SECONDS")
+    openai_tts_model: str = Field(default="tts-1", alias="OPENAI_TTS_MODEL")
+    openai_tts_voice: str = Field(default="nova", alias="OPENAI_TTS_VOICE")
 
     rag_top_k: int = Field(default=5, alias="RAG_TOP_K")
     rag_similarity_threshold: float = Field(default=0.3, alias="RAG_SIMILARITY_THRESHOLD")
@@ -51,6 +53,9 @@ class Settings(BaseSettings):
     dms_base_url: str | None = Field(default=None, alias="DMS_BASE_URL")
     dms_username: str | None = Field(default=None, alias="DMS_USERNAME")
     dms_password: str | None = Field(default=None, alias="DMS_PASSWORD")
+
+    # --- Frontend ---
+    frontend_url: str = Field(default="https://frontend-kappa-two-17.vercel.app", alias="FRONTEND_URL")
 
     # --- Escalation ---
     manager_telegram_chat_id: str = Field(default="", alias="MANAGER_TELEGRAM_CHAT_ID")

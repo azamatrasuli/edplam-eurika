@@ -1,7 +1,67 @@
+export const MESSAGE_MAX_LENGTH = 4000
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
   || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://127.0.0.1:8009'
     : 'https://edplam-eurika.onrender.com')
+
+// ---------------------------------------------------------------------------
+// ApiError — structured error with code, message, hint, status
+// ---------------------------------------------------------------------------
+
+const STATUS_FALLBACKS = {
+  401: { code: 'auth_expired', message: 'Сессия истекла. Обновите страницу' },
+  403: { code: 'access_denied', message: 'Нет доступа к этому ресурсу' },
+  413: { code: 'audio_too_large', message: 'Файл слишком большой' },
+  422: { code: 'validation_error', message: 'Ошибка валидации данных' },
+  429: { code: 'rate_limit', message: 'Слишком много запросов. Подождите минуту' },
+  500: { code: 'internal_error', message: 'Ошибка сервера. Попробуйте позже' },
+  502: { code: 'service_unavailable', message: 'Сервис временно недоступен. Попробуйте через пару минут' },
+  503: { code: 'service_unavailable', message: 'Сервис временно недоступен. Попробуйте через пару минут' },
+}
+
+export class ApiError extends Error {
+  constructor(code, message, { status = 0, hint = '' } = {}) {
+    super(message)
+    this.name = 'ApiError'
+    this.code = code
+    this.status = status
+    this.hint = hint
+  }
+}
+
+async function throwApiError(response) {
+  let code, detail, hint
+  try {
+    const body = await response.json()
+    code = body.error
+    detail = body.detail
+    hint = body.hint
+  } catch {
+    // response body is not JSON — use fallback
+  }
+
+  if (!code || !detail) {
+    const fallback = STATUS_FALLBACKS[response.status] || {
+      code: 'unknown',
+      message: 'Что-то пошло не так. Попробуйте ещё раз',
+    }
+    code = code || fallback.code
+    detail = detail || fallback.message
+  }
+
+  throw new ApiError(code, detail, { status: response.status, hint: hint || '' })
+}
+
+function checkOnline() {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    throw new ApiError('offline', 'Нет подключения к интернету. Проверьте соединение')
+  }
+}
+
+// ---------------------------------------------------------------------------
+// API functions
+// ---------------------------------------------------------------------------
 
 export async function startConversation(auth, conversationId = null, agentRole = 'sales', forceNew = false) {
   const body = { auth, agent_role: agentRole }
@@ -12,9 +72,7 @@ export async function startConversation(auth, conversationId = null, agentRole =
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!response.ok) {
-    throw new Error(`Failed to start conversation (${response.status})`)
-  }
+  if (!response.ok) await throwApiError(response)
   return response.json()
 }
 
@@ -24,9 +82,7 @@ export async function fetchMessages(conversationId, auth) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(auth),
   })
-  if (!response.ok) {
-    throw new Error(`Failed to fetch messages (${response.status})`)
-  }
+  if (!response.ok) await throwApiError(response)
   return response.json()
 }
 
@@ -82,6 +138,8 @@ async function readSSEStream(response, onEvent) {
 }
 
 export async function streamChat({ auth, conversationId, message, agentRole = 'sales', onEvent, signal }) {
+  checkOnline()
+
   const response = await fetch(`${API_BASE_URL}/api/v1/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -90,7 +148,7 @@ export async function streamChat({ auth, conversationId, message, agentRole = 's
   })
 
   if (!response.ok || !response.body) {
-    throw new Error(`Chat stream failed (${response.status})`)
+    await throwApiError(response)
   }
 
   await readSSEStream(response, onEvent)
@@ -104,7 +162,7 @@ export async function transcribeAudio(audioBlob, auth) {
     method: 'POST',
     body: formData,
   })
-  if (!response.ok) throw new Error(`Transcription failed (${response.status})`)
+  if (!response.ok) await throwApiError(response)
   return (await response.json()).transcript
 }
 
@@ -114,7 +172,7 @@ export async function checkProfile(auth) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ auth }),
   })
-  if (!response.ok) throw new Error(`Profile check failed (${response.status})`)
+  if (!response.ok) await throwApiError(response)
   return response.json()
 }
 
@@ -124,11 +182,13 @@ export async function verifyOnboarding(auth, data) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ auth, ...data }),
   })
-  if (!response.ok) throw new Error(`Onboarding verify failed (${response.status})`)
+  if (!response.ok) await throwApiError(response)
   return response.json()
 }
 
 export async function streamVoice({ auth, conversationId, audioBlob, agentRole = 'sales', onEvent, signal }) {
+  checkOnline()
+
   const formData = new FormData()
   formData.append('audio', audioBlob, 'voice.webm')
   formData.append('auth_json', JSON.stringify(auth))
@@ -144,7 +204,7 @@ export async function streamVoice({ auth, conversationId, audioBlob, agentRole =
   })
 
   if (!response.ok || !response.body) {
-    throw new Error(`Voice stream failed (${response.status})`)
+    await throwApiError(response)
   }
 
   await readSSEStream(response, onEvent)
@@ -160,7 +220,7 @@ export async function listConversations(auth, agentRole = null, { offset = 0, li
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!response.ok) throw new Error(`Failed to list conversations (${response.status})`)
+  if (!response.ok) await throwApiError(response)
   return response.json()
 }
 
@@ -170,7 +230,7 @@ export async function archiveConversation(conversationId, auth) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(auth),
   })
-  if (!response.ok) throw new Error(`Failed to archive conversation (${response.status})`)
+  if (!response.ok) await throwApiError(response)
   return response.json()
 }
 
@@ -180,7 +240,27 @@ export async function renameConversation(conversationId, title, auth) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ auth, title }),
   })
-  if (!response.ok) throw new Error(`Failed to rename conversation (${response.status})`)
+  if (!response.ok) await throwApiError(response)
+  return response.json()
+}
+
+export async function deleteConversation(conversationId, auth) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(auth),
+  })
+  if (!response.ok) await throwApiError(response)
+  return response.json()
+}
+
+export async function unarchiveConversation(conversationId, auth) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/unarchive`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(auth),
+  })
+  if (!response.ok) await throwApiError(response)
   return response.json()
 }
 
@@ -192,6 +272,6 @@ export async function searchConversations(auth, query, agentRole = null) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!response.ok) throw new Error(`Failed to search conversations (${response.status})`)
+  if (!response.ok) await throwApiError(response)
   return response.json()
 }

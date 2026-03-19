@@ -9,6 +9,8 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.auth.service import AuthService
+from app.errors import error_response
+from app.logging_config import enrich_ctx
 
 _TOOL_LABELS = {
     "search_knowledge_base": "Ищу в базе знаний...",
@@ -189,7 +191,7 @@ def _make_stream(
                         chat_service.repo.update_conversation_title(ctx.conversation.id, auto_title)
                         yield _sse("title", {"conversation_id": ctx.conversation.id, "title": auto_title})
     except Exception:
-        logger.debug("Auto-title generation failed", exc_info=True)
+        logger.warning("Auto-title generation failed", exc_info=True)
 
     yield _sse("done", {"text": answer, "usage_tokens": usage_tokens})
 
@@ -254,7 +256,9 @@ def conversation_messages(conversation_id: str, auth: AuthPayload) -> Conversati
 def chat_stream(req: ChatStreamRequest) -> StreamingResponse:
     actor = auth_service.resolve(req.auth)
     actor = actor.model_copy(update={"agent_role": req.agent_role})
+    enrich_ctx(user_id=actor.actor_id, agent_role=req.agent_role.value)
     ctx = chat_service.ensure_conversation(actor, conversation_id=req.conversation_id)
+    enrich_ctx(conversation_id=ctx.conversation.id)
     return StreamingResponse(
         _make_stream(req.message, actor, ctx),
         media_type="text/event-stream",
@@ -272,13 +276,13 @@ async def chat_transcribe(
     auth_service.resolve(auth)
     ext = (audio.filename or "audio.webm").rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_FORMATS:
-        raise HTTPException(400, f"Unsupported format: {ext}")
+        return error_response("audio_format")
     audio_bytes = await audio.read()
     if len(audio_bytes) > 25 * 1024 * 1024:
-        raise HTTPException(413, "Audio file too large")
+        return error_response("audio_too_large")
     transcript = speech_service.transcribe(audio_bytes, filename=audio.filename or f"voice.{ext}")
     if not transcript:
-        raise HTTPException(502, "Speech-to-text unavailable")
+        return error_response("stt_unavailable")
     return {"transcript": transcript}
 
 
@@ -292,15 +296,15 @@ async def chat_voice(
     """Accept voice message, transcribe via Whisper, then stream LLM response."""
     ext = (audio.filename or "audio.webm").rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_FORMATS:
-        raise HTTPException(400, f"Unsupported audio format: {ext}. Allowed: {', '.join(sorted(ALLOWED_FORMATS))}")
+        return error_response("audio_format")
 
     audio_bytes = await audio.read()
     if len(audio_bytes) > 25 * 1024 * 1024:
-        raise HTTPException(413, "Audio file too large (max 25MB)")
+        return error_response("audio_too_large")
 
     transcript = speech_service.transcribe(audio_bytes, filename=audio.filename or f"voice.{ext}")
     if not transcript:
-        raise HTTPException(502, "Speech-to-text service unavailable")
+        return error_response("stt_unavailable")
 
     role_enum = AgentRole(agent_role) if agent_role in ("sales", "support") else AgentRole.sales
     auth = AuthPayload.model_validate_json(auth_json)

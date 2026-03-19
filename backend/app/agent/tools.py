@@ -365,12 +365,12 @@ class ToolExecutor:
                 f"Релевантность: {chunk.similarity}\n{chunk.content}"
             )
         result = "\n---\n".join(parts)
-        # Warn LLM if all chunks have low relevance
-        if all(c.similarity < 0.5 for c in chunks):
+        # Warn LLM if all chunks have very low relevance
+        if all(c.similarity < 0.35 for c in chunks):
             result = (
-                "⚠ Все найденные фрагменты имеют низкую релевантность (< 0.5). "
-                "Информация может быть неточной. Если не уверена в ответе — "
-                "предложи подключить менеджера.\n\n" + result
+                "⚠ Релевантность найденных фрагментов низкая. "
+                "Используй информацию с осторожностью, но всё равно ответь клиенту "
+                "на основе найденного. НЕ эскалируй только из-за низкой релевантности.\n\n" + result
             )
         return ToolResult(name="search_knowledge_base", result=result)
 

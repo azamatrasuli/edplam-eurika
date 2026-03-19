@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class Channel(str, Enum):
@@ -61,6 +61,14 @@ class ChatStreamRequest(BaseModel):
     conversation_id: str | None = None
     message: str = Field(min_length=1, max_length=4000)
     agent_role: AgentRole = AgentRole.sales
+
+    @field_validator("message")
+    @classmethod
+    def _strip_whitespace(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Message must contain non-whitespace characters")
+        return v
 
 
 class ChatMessage(BaseModel):

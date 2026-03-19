@@ -1,0 +1,868 @@
+[
+  {
+    "scenario_id": 1,
+    "name": "Parent 2nd+tutor→Классный70K",
+    "conversation_id": "c20209c4-085f-4170-892c-a8958d267bf2",
+    "status": "OK",
+    "valid_turns": 4,
+    "total_turns": 4,
+    "all_tools": [
+      "search_knowledge_base",
+      "search_knowledge_base",
+      "search_knowledge_base",
+      "escalate_to_manager"
+    ],
+    "had_escalation": true,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Добрый день",
+        "agent": "Добрый день! Чем могу помочь вам сегодня?",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Сын во 2 классе",
+        "agent": "Для второго класса у нас есть несколько программ, которые могут заинтересовать вас и вашего сына. Например, у нас есть программы с живыми уроками и самостоятельным обучением. \n\nМожет быть, вас интересует определённый формат обучения или дополнительные занятия?",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Нужно с тьютором",
+        "agent": "К сожалению, в базе знаний нет информации о программе с тьютором для второго класса. Однако, у нас есть программы с тьюторским сопровождением для других классов, и я могу уточнить детали у менеджера.\n\nХотите, я подключу менеджера, чтобы он подробнее рассказал о возможностях для вашего сына?",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Сколько стоит?",
+        "agent": "К сожалению, в базе знаний нет информации о стоимости программы с тьютором для второго класса. Давайте я подключу менеджера, который сможет предоставить более точные данные и ответить на все ваши вопросы. Подождите, пожалуйста.Я передала ваш запрос менеджеру. Он свяжется с вами в ближайшее время, чтобы предоставить всю необходимую информацию о программе с тьютором для второго класса. Если у вас есть ещё вопросы, не стесняйтесь обращаться!",
+        "tools": [
+          "search_knowledge_base",
+          "escalate_to_manager"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": {
+          "reason": "Необходима информация о стоимости программы с тьютором для 2 класса, которой нет в базе знаний.",
+          "manager_notified": true
+        },
+        "payment": null
+      }
+    ],
+    "elapsed_s": 161
+  },
+  {
+    "scenario_id": 3,
+    "name": "Parent 9th OGE→Выпускник",
+    "conversation_id": "096cd43a-90ca-46c9-aa5f-53108e586941",
+    "status": "PARTIAL",
+    "valid_turns": 2,
+    "total_turns": 3,
+    "all_tools": [
+      "search_knowledge_base",
+      "escalate_to_manager",
+      "search_knowledge_base",
+      "search_knowledge_base"
+    ],
+    "had_escalation": true,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Привет! У меня ребёнок в 9 классе, нужна подготовка к ОГЭ",
+        "agent": "К сожалению, я не нашла информацию о подготовке к ОГЭ для 9 класса в нашей базе знаний. Давайте я подключу менеджера, чтобы он помог вам с этим вопросом. Подождите, пожалуйста, немного.Я передала ваш запрос менеджеру, и он свяжется с вами в ближайшее время, чтобы помочь с подготовкой к ОГЭ для 9 класса. Если есть ещё вопросы, дайте знать!",
+        "tools": [
+          "search_knowledge_base",
+          "escalate_to_manager"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": {
+          "reason": "Не найдена информация о подготовке к ОГЭ для 9 класса в базе знаний.",
+          "manager_notified": true
+        },
+        "payment": null
+      },
+      {
+        "user": "Какие варианты для выпускников?",
+        "agent": "К сожалению, я не нашла информацию о программах для 11 класса в нашей базе знаний. Давайте я подключу менеджера, чтобы он помог вам с этим вопросом. Подождите, пожалуйста, немного.",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Сколько стоит?",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 132
+  },
+  {
+    "scenario_id": 5,
+    "name": "Parent 3rd Moscow→Заочный1₽",
+    "conversation_id": "5a864846-5a8d-4b4b-a2ee-059f08c71c15",
+    "status": "PARTIAL",
+    "valid_turns": 3,
+    "total_turns": 4,
+    "all_tools": [
+      "search_knowledge_base",
+      "search_knowledge_base",
+      "search_knowledge_base"
+    ],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Здравствуйте, мы в Москве",
+        "agent": "Здравствуйте! Рада помочь вам. Если вы в Москве, у нас есть несколько вариантов обучения, включая бесплатный заочный формат при московской регистрации. В каком классе ваш ребёнок? Это поможет мне предложить наиболее подходящие программы.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "3 класс",
+        "agent": "К сожалению, я не смогла найти информацию о программах для 3 класса в базе знаний. Однако, у нас обычно есть несколько вариантов для учеников начальной школы, включая самостоятельное обучение и программы с поддержкой тьютора.\n\nЕсли вас интересуют конкретные детали или вы хотите обсудить варианты, я могу подключить менеджера для более подробной консультации. Как вам такой вариант?",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Есть ли бесплатное обучение?",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Прописка московская",
+        "agent": "К сожалению, в базе знаний нет информации о бесплатном обучении для 3 класса при московской прописке. Однако, обычно для учеников с московской регистрацией предлагается бесплатный заочный формат обучения. \n\nЕсли вас интересует более детальная информация или другие варианты, я могу подключить менеджера для консультации. Как вам такой вариант?",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 226
+  },
+  {
+    "scenario_id": 9,
+    "name": "Bullying 8th→Классный85K+empathy",
+    "conversation_id": "52d7df25-b1b4-4ceb-af54-b9af81819605",
+    "status": "PARTIAL",
+    "valid_turns": 2,
+    "total_turns": 4,
+    "all_tools": [
+      "search_knowledge_base"
+    ],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Здравствуйте, у ребёнка проблемы в школе",
+        "agent": "Понимаю, это может быть непросто. Мы можем помочь с обучением в комфортной среде. В каком классе ваш ребёнок? Я расскажу, какие программы у нас есть для этого уровня.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "8 класс",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Буллинг, хотим уйти",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Что-то с поддержкой",
+        "agent": "Понимаю, это очень сложная ситуация. Важно, чтобы ребёнок чувствовал себя в безопасности и комфортно. В EdPalm мы предлагаем программы, которые позволяют учиться дистанционно, в спокойной обстановке.\n\nДля 8 класса у нас есть несколько вариантов:\n1. **Экстернат Классный** — включает живые уроки с учителями и поддержку тьютора. Это помогает оставаться на связи с педагогами и получать помощь в обучении.\n2. **Самостоятельное обучение** — для тех, кто предпочитает учиться в своём темпе, но с доступом",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 325
+  },
+  {
+    "scenario_id": 11,
+    "name": "Dubai 5th→Классный+Dubai",
+    "conversation_id": "b8035ec2-996d-4053-890b-756cbd847a9e",
+    "status": "PARTIAL",
+    "valid_turns": 2,
+    "total_turns": 3,
+    "all_tools": [
+      "search_knowledge_base",
+      "search_knowledge_base",
+      "escalate_to_manager"
+    ],
+    "had_escalation": true,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Мы в Дубае",
+        "agent": "Здорово, что вы с нами из Дубая! Мы работаем и в России, и в ОАЭ, так что можем предложить вам различные образовательные программы. В каком классе ваш ребёнок, и что вас интересует больше всего: основная программа или подготовка к экзаменам?",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "5 класс",
+        "agent": "К сожалению, я не нашла информацию о программах для 5 класса в базе знаний. Но я могу предложить вам несколько вариантов:\n\n1. **Экстернат Классный** — включает живые уроки, тьюторскую поддержку и аттестацию. Это отличный выбор для тех, кто хочет полноценное сопровождение.\n2. **Самостоятельное обучение** — для детей, которые могут учиться самостоятельно, с доступом к материалам и тестам.\n\nКакой формат вас больше интересует?",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Хотим с живыми уроками",
+        "agent": "К сожалению, я не нашла информацию о стоимости программы \"Экстернат Классный\" для 5 класса. Давайте я подключу менеджера, который сможет предоставить вам более подробную информацию и ответить на все ваши вопросы. Подождите, пожалуйста.Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [
+          "search_knowledge_base",
+          "escalate_to_manager"
+        ],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": {
+          "reason": "Не найдена информация о стоимости программы для 5 класса",
+          "manager_notified": true
+        },
+        "payment": null
+      }
+    ],
+    "elapsed_s": 226
+  },
+  {
+    "scenario_id": 21,
+    "name": "Teen 9th informal→Выпускник",
+    "conversation_id": "648e902d-35f6-4aa6-8f15-f44da55b2e81",
+    "status": "OK",
+    "valid_turns": 3,
+    "total_turns": 3,
+    "all_tools": [
+      "search_knowledge_base"
+    ],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "хай, я в 9 классе",
+        "agent": "Привет! Для 9 класса у нас есть несколько вариантов обучения. Ты ищешь основную программу или подготовку к экзаменам?",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "хочу на семейное",
+        "agent": "Отлично, у нас есть программа для семейного обучения, которая включает в себя все необходимые материалы и поддержку для самостоятельного изучения. \n\nТы предпочитаешь больше самостоятельности или хотел бы, чтобы были живые уроки и поддержка от тьютора?",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "чё по ценам?",
+        "agent": "К сожалению, я не смогла найти информацию о ценах на семейное обучение для 9 класса. Давай я подключу менеджера, который сможет предоставить точные данные и ответить на все твои вопросы. Подойдёт?",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 179
+  },
+  {
+    "scenario_id": 28,
+    "name": "Teen English",
+    "conversation_id": "abc8baaf-c9dc-4215-9e90-13c9fc1a758c",
+    "status": "OK",
+    "valid_turns": 2,
+    "total_turns": 2,
+    "all_tools": [],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "hello, i'm in 10th grade",
+        "agent": "Привет! В 10 классе у нас есть несколько программ, которые могут тебя заинтересовать. Ты ищешь основную программу или подготовку к экзаменам?",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "can I study in English?",
+        "agent": "Да, у нас есть программы на английском языке. Это может быть полезно, если ты планируешь сдавать международные экзамены или учиться за границей. \n\nИнтересует ли тебя определённый предмет или направление?",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 100
+  },
+  {
+    "scenario_id": 40,
+    "name": "Disabled→Персональный+esc",
+    "conversation_id": "91fc3155-8d70-4b58-94fd-337b72303ef6",
+    "status": "PARTIAL",
+    "valid_turns": 2,
+    "total_turns": 3,
+    "all_tools": [],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Ребёнок-инвалид",
+        "agent": "Понимаю, это важный вопрос. У нас есть программы, которые могут подойти для детей с особыми потребностями. Мы предлагаем гибкие форматы обучения, которые могут включать как самостоятельное обучение, так и поддержку тьютора.\n\nВ каком классе ваш ребёнок? Я подберу подходящие варианты.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Нужна адаптированная программа",
+        "agent": "Понимаю, адаптированная программа может быть очень полезной. У нас есть возможности для индивидуального подхода, чтобы учесть особенности и потребности вашего ребёнка.\n\nДля начала, в каком классе ваш ребёнок? Это поможет мне предложить более конкретные варианты.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "6 класс",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 223
+  },
+  {
+    "scenario_id": 50,
+    "name": "Knows everything→pay",
+    "conversation_id": "9bdd16c3-6556-4e3e-b96b-026c71cc4797",
+    "status": "OK",
+    "valid_turns": 1,
+    "total_turns": 1,
+    "all_tools": [
+      "search_knowledge_base"
+    ],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Базовый Весь Год для 3 класса, 19500, как оплатить?",
+        "agent": "К сожалению, я не нашла информацию о программе \"Базовый Весь Год\" для 3 класса. Возможно, я могу подключить менеджера, чтобы он помог с оплатой и ответил на все вопросы. Подскажите, пожалуйста, ваш номер телефона, чтобы я могла передать информацию менеджеру.",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 15
+  },
+  {
+    "scenario_id": 56,
+    "name": "Full Basic 5th",
+    "conversation_id": "34a6cc9e-3a35-4e31-aee2-9142bd5027a2",
+    "status": "PARTIAL",
+    "valid_turns": 2,
+    "total_turns": 5,
+    "all_tools": [
+      "search_knowledge_base",
+      "search_knowledge_base",
+      "search_knowledge_base",
+      "get_client_profile",
+      "search_knowledge_base",
+      "search_knowledge_base"
+    ],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "5 класс",
+        "agent": "К сожалению, я не нашла информацию о программах для 5 класса в базе. Давайте я подключу менеджера, который сможет помочь более подробно. Подскажите, пожалуйста, ваш номер телефона, чтобы мы могли связаться с вами напрямую.",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Базовый",
+        "agent": "К сожалению, я не нашла информацию о программе \"Базовый\" для 5 класса. Давайте я подключу менеджера, который сможет помочь более подробно. Подскажите, пожалуйста, ваш номер телефона, чтобы мы могли связаться с вами напрямую.",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Сколько?",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Мария Иванова, +79161234567",
+        "agent": "Мария, спасибо за информацию. Я не нашла вас в нашей системе по указанному номеру. Давайте я помогу вам с информацией о программе \"Базовый\" для 5 класса. Сейчас уточню детали.Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [
+          "get_client_profile",
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Оплачиваем",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 402
+  },
+  {
+    "scenario_id": 59,
+    "name": "Персональный 7th→esc",
+    "conversation_id": "bd3343f7-f6fc-449e-a81a-4eda7f703710",
+    "status": "OK",
+    "valid_turns": 4,
+    "total_turns": 4,
+    "all_tools": [
+      "search_knowledge_base"
+    ],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Хотим Персональный для 7 класса",
+        "agent": "Для тарифа \"Персональный\" мы организуем бесплатную консультацию с менеджером по образованию. Это поможет вам лучше понять все возможности и выбрать оптимальный вариант для вашего ребёнка. Давайте подключу вас к менеджеру?",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Расскажите подробнее",
+        "agent": "К сожалению, у меня нет подробной информации о тарифе \"Персональный\" для 7 класса в базе знаний. Однако, на консультации с менеджером вы сможете получить все необходимые детали и задать интересующие вас вопросы.\n\nХотите, я организую для вас такую консультацию?",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Да, хотим",
+        "agent": "Отлично! Чтобы организовать консультацию, мне понадобится ваш номер телефона. На какой номер оформить заявку?",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Как оплатить?",
+        "agent": "Оплата для тарифа \"Персональный\" осуществляется после консультации с менеджером. Он подробно расскажет о программе и предоставит все необходимые инструкции для оплаты.\n\nЕсли вы готовы, я могу организовать для вас консультацию. Пожалуйста, сообщите ваш номер телефона, чтобы мы могли связаться с вами.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 52
+  },
+  {
+    "scenario_id": 66,
+    "name": "Objection expensive→down",
+    "conversation_id": "08e54790-330f-43aa-8e8d-f1d00973c3ae",
+    "status": "FAIL",
+    "valid_turns": 0,
+    "total_turns": 5,
+    "all_tools": [
+      "search_knowledge_base"
+    ],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "5 класс",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Дорого",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Что подешевле?",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Базовый подойдёт",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Оплачиваем, Анна +79161234567",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 199
+  },
+  {
+    "scenario_id": 70,
+    "name": "Discount→escalate",
+    "conversation_id": "3618bebb-3f7a-4b0b-bd81-ad238c2ab4b5",
+    "status": "PARTIAL",
+    "valid_turns": 2,
+    "total_turns": 4,
+    "all_tools": [
+      "search_knowledge_base",
+      "escalate_to_manager"
+    ],
+    "had_escalation": true,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "9 класс",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Выпускник",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "А скидка будет?",
+        "agent": "К сожалению, в базе знаний нет информации о скидках для выпускников 9 класса. Возможно, у нас есть другие предложения или акции, которые могут вас заинтересовать. Хотите, я подключу менеджера для более детальной консультации?",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Без скидки не буду",
+        "agent": "Подключаю менеджера, чтобы обсудить возможные варианты скидок. Пожалуйста, подождите немного, он скоро свяжется с вами.",
+        "tools": [
+          "escalate_to_manager"
+        ],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": {
+          "reason": "Клиент интересуется скидками, которых нет в базе знаний.",
+          "manager_notified": true
+        },
+        "payment": null
+      }
+    ],
+    "elapsed_s": 147
+  },
+  {
+    "scenario_id": 76,
+    "name": "NO phone first msg",
+    "conversation_id": "62ee6721-a4c4-4816-a0bf-812fe4633f81",
+    "status": "OK",
+    "valid_turns": 1,
+    "total_turns": 1,
+    "all_tools": [],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Привет, расскажите об обучении",
+        "agent": "Привет! У нас в EdPalm есть несколько форматов обучения, которые подходят для разных классов и целей. Мы предлагаем программы от начальной школы до подготовки к экзаменам. \n\nДля начала, в каком классе учится ваш ребёнок? Это поможет мне предложить наиболее подходящие варианты.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 11
+  },
+  {
+    "scenario_id": 79,
+    "name": "Max 1 qual Q per msg",
+    "conversation_id": "5417d68f-0fec-442e-93ed-3bfd8475132a",
+    "status": "FAIL",
+    "valid_turns": 0,
+    "total_turns": 2,
+    "all_tools": [],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Добрый день",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "4 класс",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 177
+  },
+  {
+    "scenario_id": 80,
+    "name": "Answer first THEN ask",
+    "conversation_id": "0fd4bc2e-2865-406a-ad40-7e7f5acd532c",
+    "status": "FAIL",
+    "valid_turns": 0,
+    "total_turns": 2,
+    "all_tools": [],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Сколько стоит Классный?",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "5 класс",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 72
+  },
+  {
+    "scenario_id": 89,
+    "name": "Tone ты for teens",
+    "conversation_id": "6651b434-69d5-4517-a118-d8d2bf06d377",
+    "status": "FAIL",
+    "valid_turns": 0,
+    "total_turns": 1,
+    "all_tools": [],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "хай, я в 10 классе",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 37
+  },
+  {
+    "scenario_id": 90,
+    "name": "Off-topic redirect",
+    "conversation_id": "6699c723-2b88-4b75-b35a-36a28836cc32",
+    "status": "FAIL",
+    "valid_turns": 0,
+    "total_turns": 1,
+    "all_tools": [],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Какая погода завтра?",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 37
+  },
+  {
+    "scenario_id": 93,
+    "name": "Chips after greeting",
+    "conversation_id": "0b3ef43b-4e49-4d07-bfdb-e5a2ed234a93",
+    "status": "FAIL",
+    "valid_turns": 0,
+    "total_turns": 1,
+    "all_tools": [],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Привет!",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 39
+  },
+  {
+    "scenario_id": 94,
+    "name": "No chips after esc",
+    "conversation_id": "d0fae415-3fe6-44ae-8861-d0ecbcd57d7a",
+    "status": "FAIL",
+    "valid_turns": 0,
+    "total_turns": 1,
+    "all_tools": [],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Хочу поговорить с менеджером",
+        "agent": "Секунду, есть техническая пауза с генерацией ответа. Я уже продолжаю работу. Можете повторить вопрос или уточнить, какой класс вас интересует.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      }
+    ],
+    "elapsed_s": 36
+  }
+]

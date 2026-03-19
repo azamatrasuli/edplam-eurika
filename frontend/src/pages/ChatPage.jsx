@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ArchiveToast } from '../components/ArchiveToast'
 import { ChatWindow } from '../components/ChatWindow'
 import { ConversationSidebar } from '../components/ConversationSidebar'
 import { EscalationBanner } from '../components/EscalationBanner'
@@ -164,6 +165,38 @@ export function ChatPage() {
     }
   }, [chat, convList, agentRole, isCreating])
 
+  // Auto-switch to next conversation when active one is archived/deleted
+  const switchToNext = useCallback((removedId) => {
+    const remaining = convList.conversations.filter((c) => c.id !== removedId)
+    if (remaining.length > 0) {
+      chat.switchConversation(remaining[0].id)
+      convList.setActiveId(remaining[0].id)
+    } else {
+      handleNewChat()
+    }
+  }, [chat, convList, handleNewChat])
+
+  const handleArchive = useCallback(async (convId) => {
+    const isActive = convId === convList.activeId
+    await convList.archive(convId)
+    if (isActive) switchToNext(convId)
+  }, [convList, switchToNext])
+
+  const handleDelete = useCallback(async (convId) => {
+    const isActive = convId === convList.activeId
+    await convList.deleteConversation(convId)
+    if (isActive) switchToNext(convId)
+  }, [convList, switchToNext])
+
+  const handleUndoArchive = useCallback(async () => {
+    const toast = convList.archiveToast
+    await convList.undoArchive()
+    if (toast?.wasActive) {
+      chat.switchConversation(toast.id)
+      convList.setActiveId(toast.id)
+    }
+  }, [chat, convList])
+
   const isSupport = agentRole === 'support'
   const headerSubtitle = isSupport ? 'Служба поддержки EdPalm' : 'AI менеджер EdPalm'
   const welcomeText = isSupport
@@ -199,7 +232,8 @@ export function ChatPage() {
         onClose={() => setSidebarOpen(false)}
         onSelect={handleSelectConversation}
         onNewChat={handleNewChat}
-        onArchive={convList.archive}
+        onArchive={handleArchive}
+        onDelete={handleDelete}
         onRename={convList.rename}
         onSearch={convList.search}
         onLoadMore={convList.loadMore}
@@ -251,6 +285,14 @@ export function ChatPage() {
           <MessageInput disabled={chat.typing || chat.escalated || chat.loading} onSend={handleSend} auth={auth} onTypingStart={chat.clearSuggestions} />
         </div>
       </div>
+
+      {/* Archive undo toast */}
+      <ArchiveToast
+        visible={!!convList.archiveToast}
+        title={convList.archiveToast?.title}
+        onUndo={handleUndoArchive}
+        onDismiss={convList.dismissArchiveToast}
+      />
     </main>
   )
 }

@@ -24,7 +24,7 @@ class AuthService:
         if sum(provided) != 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Exactly one auth mode must be provided",
+                detail="Ошибка аутентификации. Обновите страницу и попробуйте снова.",
             )
 
         if auth.portal_token:
@@ -42,4 +42,4 @@ class AuthService:
                 metadata={},
             )
 
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Auth payload is empty")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ошибка аутентификации. Обновите страницу и попробуйте снова.")

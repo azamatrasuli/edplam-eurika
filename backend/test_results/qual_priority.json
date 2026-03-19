@@ -1,0 +1,104 @@
+[
+  {
+    "scenario_id": 9,
+    "name": "Bullying 8th grade → Классный 85K + empathy",
+    "conversation_id": "9244d136-dbb5-4505-a15b-492e176d5406",
+    "status": "PARTIAL",
+    "valid_turns": 3,
+    "total_turns": 4,
+    "total_time_ms": 541951,
+    "all_tools": [
+      "search_knowledge_base"
+    ],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Здравствуйте, у ребёнка проблемы в школе",
+        "agent": "Понимаю, это может быть непросто. Мы можем помочь, предложив программы, которые поддержат вашего ребёнка в обучении. В каком он классе и какие именно трудности возникают?",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "8 класс",
+        "agent": "Для 8 класса у нас есть несколько программ, которые могут помочь вашему ребёнку. Например, программа \"Экстернат Классный\" включает живые уроки с преподавателями и поддержку тьютора. Это может быть полезно, если ребёнку нужна дополнительная помощь и мотивация.\n\nКакие именно трудности у ребёнка? Это поможет мне предложить более точное решение.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Буллинг, хотим уйти",
+        "agent": "Понимаю, это очень сложная ситуация. В таких случаях переход на дистанционное обучение может стать хорошим решением. Программа \"Экстернат Классный\" предлагает живые уроки и поддержку тьютора, что помогает сохранить качество образования и социализацию, но в более безопасной и комфортной обстановке.\n\nЕсли вас интересует эта программа или есть другие вопросы, дайте знать. Я помогу с оформлением и всеми деталями.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Что-то с поддержкой",
+        "agent": "",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      }
+    ]
+  },
+  {
+    "scenario_id": 11,
+    "name": "Dubai 5th grade → Классный + Dubai",
+    "conversation_id": "9abb4e33-8f56-4f19-b625-f20b2994afa6",
+    "status": "PARTIAL",
+    "valid_turns": 1,
+    "total_turns": 3,
+    "total_time_ms": 320956,
+    "all_tools": [
+      "search_knowledge_base",
+      "search_knowledge_base"
+    ],
+    "had_escalation": false,
+    "had_payment": false,
+    "turns": [
+      {
+        "user": "Мы в Дубае",
+        "agent": "Отлично! Мы работаем и в ОАЭ. В каком классе ваш ребёнок? Я подскажу, какие программы подойдут.",
+        "tools": [],
+        "suggestions": [],
+        "is_fallback": false,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "5 класс",
+        "agent": "",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      },
+      {
+        "user": "Хотим с живыми уроками",
+        "agent": "",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "suggestions": [],
+        "is_fallback": true,
+        "escalation": null,
+        "payment": null
+      }
+    ]
+  }
+]

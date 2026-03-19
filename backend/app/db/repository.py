@@ -266,6 +266,30 @@ class ConversationRepository:
             logger.warning("Failed to archive conversation %s", conversation_id, exc_info=True)
             return False
 
+    def unarchive_conversation(self, conversation_id: str, actor_id: str) -> bool:
+        """Restore an archived conversation. Returns True if unarchived."""
+        if not self._has_db():
+            return False
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return False
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        UPDATE conversations
+                        SET archived_at = NULL
+                        WHERE id = %s AND actor_id = %s AND archived_at IS NOT NULL
+                        """,
+                        (conversation_id, actor_id),
+                    )
+                    affected = cur.rowcount
+                conn.commit()
+                return affected > 0
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to unarchive conversation %s", conversation_id, exc_info=True)
+            return False
+
     def delete_conversation(self, conversation_id: str, actor_id: str) -> bool:
         """Hard-delete a conversation and all its messages (CASCADE). Returns True if deleted."""
         if not self._has_db():

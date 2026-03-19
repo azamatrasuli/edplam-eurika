@@ -58,7 +58,8 @@ class ChatService:
         child_snippet = ""
         if profile and profile.dms_verified and profile.children:
             first_child = profile.children[0]
-            child_name = (first_child.get("fio") or "").split()[0]
+            fio_parts = (first_child.get("fio") or "").split()
+            child_name = fio_parts[0] if fio_parts else None
             child_grade = first_child.get("grade")
             if child_name and child_grade:
                 child_snippet = f" Вижу, {child_name} в {child_grade} классе."
