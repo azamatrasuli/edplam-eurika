@@ -43,7 +43,7 @@ function TTSButton({ messageId, ttsPlayingId, ttsState, onPlay }) {
       className={`w-7 h-7 flex items-center justify-center rounded-full border-none cursor-pointer shrink-0 transition-all duration-200 ${
         isThis
           ? 'bg-brand/10 text-brand opacity-100'
-          : 'bg-transparent text-fg-muted opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-fg hover:bg-black/[0.06] dark:hover:bg-white/[0.08]'
+          : 'bg-transparent text-fg-muted opacity-40 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 hover:text-fg hover:bg-black/[0.06] dark:hover:bg-white/[0.08]'
       }`}
       title={isPlaying ? 'Пауза' : isPaused ? 'Продолжить' : 'Озвучить'}
       type="button"
