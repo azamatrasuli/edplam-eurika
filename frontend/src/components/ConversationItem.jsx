@@ -278,7 +278,7 @@ export function ConversationItem({ conversation, isActive, onSelect, onArchive, 
           </button>
           <button
             onClick={handleArchive}
-            className="flex items-center gap-2.5 w-full text-left px-3 py-2 text-sm text-fg-muted hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
+            className="flex items-center gap-2.5 w-full text-left px-3 py-2 text-sm hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
           >
             <ArchiveIcon size={14} />
             Архивировать

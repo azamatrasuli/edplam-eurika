@@ -252,6 +252,8 @@ export function ChatPage() {
         onRename={convList.rename}
         onSearch={convList.search}
         onLoadMore={convList.loadMore}
+        auth={auth}
+        agentRole={agentRole}
       />
 
       {/* Chat area */}
