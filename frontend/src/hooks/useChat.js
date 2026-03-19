@@ -20,6 +20,7 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
   const initRef = useRef(false)
   const conversationIdRef = useRef(conversationId)
   const titleCallbackRef = useRef(null)
+  const bumpCallbackRef = useRef(null)
 
   // --- Load a conversation (new or existing) ---
   const loadConversation = useCallback(async (convId = null, forceNew = false) => {
@@ -193,9 +194,17 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
             }
           }
 
+          if (event === 'suggestions' && payload.chips) {
+            setSuggestions(payload.chips)
+          }
+
           if (event === 'done') {
             setTyping(false)
             setToolStatus('')
+            // Update sidebar metadata reactively
+            if (bumpCallbackRef.current) {
+              bumpCallbackRef.current(conversationIdRef.current, text)
+            }
           }
         },
       })
@@ -230,9 +239,13 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
 
   const clearSuggestions = useCallback(() => setSuggestions([]), [])
 
-  // Register title update callback (called from ChatPage)
+  // Register callbacks (called from ChatPage)
   const onTitleUpdate = useCallback((cb) => {
     titleCallbackRef.current = cb
+  }, [])
+
+  const onBumpConversation = useCallback((cb) => {
+    bumpCallbackRef.current = cb
   }, [])
 
   return {
@@ -251,5 +264,6 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
     suggestions,
     clearSuggestions,
     onTitleUpdate,
+    onBumpConversation,
   }
 }

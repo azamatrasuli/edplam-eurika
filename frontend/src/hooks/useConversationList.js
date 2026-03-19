@@ -197,6 +197,28 @@ export function useConversationList(auth, agentRole = 'sales', { onError } = {})
     )
   }, [])
 
+  // Update sidebar metadata after message send (message count, last user message, timestamp)
+  const bumpConversation = useCallback((conversationId, userText) => {
+    setConversations((prev) => {
+      const updated = prev.map((c) => {
+        if (c.id !== conversationId) return c
+        return {
+          ...c,
+          message_count: (c.message_count || 0) + 2,
+          last_user_message: userText,
+          updated_at: new Date().toISOString(),
+        }
+      })
+      // Move to top
+      const idx = updated.findIndex((c) => c.id === conversationId)
+      if (idx > 0) {
+        const [conv] = updated.splice(idx, 1)
+        updated.unshift(conv)
+      }
+      return updated
+    })
+  }, [])
+
   return useMemo(() => ({
     conversations,
     total,
@@ -216,5 +238,6 @@ export function useConversationList(auth, agentRole = 'sales', { onError } = {})
     rename,
     addConversation,
     updateTitle,
-  }), [conversations, total, hasMore, loading, searchQuery, activeId, refresh, loadMore, search, archive, undoArchive, archiveToast, dismissArchiveToast, deleteConversation, rename, addConversation, updateTitle])
+    bumpConversation,
+  }), [conversations, total, hasMore, loading, searchQuery, activeId, refresh, loadMore, search, archive, undoArchive, archiveToast, dismissArchiveToast, deleteConversation, rename, addConversation, updateTitle, bumpConversation])
 }

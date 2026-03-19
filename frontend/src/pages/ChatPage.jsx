@@ -132,12 +132,15 @@ export function ChatPage() {
   const convList = useConversationList(auth, agentRole, { onError: showErrorToast })
   const tts = useTTS(auth)
 
-  // Wire title updates: SSE → sidebar
+  // Wire SSE callbacks → sidebar (stable refs, runs once)
   useEffect(() => {
     chat.onTitleUpdate((conversationId, title) => {
       convList.updateTitle(conversationId, title)
     })
-  }, [chat.onTitleUpdate, convList.updateTitle])
+    chat.onBumpConversation((conversationId, userText) => {
+      convList.bumpConversation(conversationId, userText)
+    })
+  }, [chat.onTitleUpdate, chat.onBumpConversation, convList.updateTitle, convList.bumpConversation])
 
   // Sync active conversation in sidebar
   const setActiveIdRef = useRef(convList.setActiveId)
