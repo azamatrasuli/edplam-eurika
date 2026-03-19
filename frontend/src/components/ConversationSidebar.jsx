@@ -3,15 +3,12 @@ import { listConversations } from '../api/client'
 import { buildAuthPayload } from '../lib/authContext'
 import { ConversationItem } from './ConversationItem'
 
-function SidebarSkeleton({ count = 4 }) {
-  return Array.from({ length: count }, (_, i) => (
-    <div key={i} className="flex items-center gap-3 px-3 py-2.5 animate-[fade-in_0.2s_ease]">
-      <div className="flex-1 min-w-0 space-y-2">
-        <div className="skeleton h-3.5 rounded" style={{ width: `${60 + Math.random() * 30}%` }} />
-        <div className="skeleton h-2.5 rounded" style={{ width: `${30 + Math.random() * 20}%` }} />
-      </div>
+function SidebarSpinner() {
+  return (
+    <div className="flex justify-center py-6">
+      <span className="w-5 h-5 border-2 border-brand/20 border-t-brand rounded-full animate-spin" />
     </div>
-  ))
+  )
 }
 
 const COLLAPSED_KEY = 'eurika_sidebar_collapsed'
@@ -196,7 +193,7 @@ export function ConversationSidebar({
         className="flex-1 overflow-y-auto px-2 pb-2"
       >
         {loading && conversations.length === 0 && (
-          <SidebarSkeleton count={5} />
+          <SidebarSpinner />
         )}
 
         {conversations.length === 0 && !loading && (
@@ -218,7 +215,7 @@ export function ConversationSidebar({
         ))}
 
         {loading && conversations.length > 0 && (
-          <SidebarSkeleton count={2} />
+          <SidebarSpinner />
         )}
 
         {/* Archived section */}
@@ -244,7 +241,7 @@ export function ConversationSidebar({
 
             {showArchived && (
               <div className="mt-1">
-                {archivedLoading && <SidebarSkeleton count={2} />}
+                {archivedLoading && <SidebarSpinner />}
                 {!archivedLoading && archivedConvs.length === 0 && (
                   <div className="text-center text-xs text-fg-muted py-4">Нет архивных чатов</div>
                 )}

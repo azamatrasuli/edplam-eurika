@@ -3,29 +3,12 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { OnboardingMessage } from './OnboardingMessage'
 
-function MessageSkeleton() {
+function LoadingSpinner() {
   return (
-    <div className="flex flex-col gap-3 px-1 animate-[fade-in_0.2s_ease]">
-      {/* Assistant skeleton */}
-      <div className="flex items-end gap-2 justify-start">
-        <div className="w-7 h-7 rounded-full skeleton shrink-0" />
-        <div className="flex flex-col gap-1.5">
-          <div className="skeleton h-4 w-48 rounded-lg" />
-          <div className="skeleton h-4 w-36 rounded-lg" />
-        </div>
-      </div>
-      {/* User skeleton */}
-      <div className="flex items-end gap-2 justify-end">
-        <div className="skeleton h-4 w-40 rounded-lg opacity-60" />
-      </div>
-      {/* Assistant skeleton */}
-      <div className="flex items-end gap-2 justify-start">
-        <div className="w-7 h-7 rounded-full skeleton shrink-0" />
-        <div className="flex flex-col gap-1.5">
-          <div className="skeleton h-4 w-56 rounded-lg" />
-          <div className="skeleton h-4 w-44 rounded-lg" />
-          <div className="skeleton h-4 w-28 rounded-lg" />
-        </div>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <span className="w-7 h-7 border-[2.5px] border-brand/20 border-t-brand rounded-full animate-spin" />
+        <span className="text-xs text-fg-muted">Загрузка...</span>
       </div>
     </div>
   )
@@ -84,9 +67,8 @@ export function ChatWindow({ messages, avatarProps, typing, toolStatus, loading,
       ref={containerRef}
       onScroll={handleScroll}
     >
-      {/* Loading skeleton during conversation switch — shown INSTEAD of messages */}
       {loading ? (
-        <MessageSkeleton />
+        <LoadingSpinner />
       ) : (
       <div className="flex flex-col gap-1">
         {visibleMessages.map((message) => {
