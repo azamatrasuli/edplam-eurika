@@ -12,7 +12,7 @@
 
 | Среда | URL |
 |---|---|
-| Frontend (Vercel) | https://eurika-edpalm.vercel.app |
+| Frontend (Vercel) | https://edplam-eurika.vercel.app |
 | Backend Prod (Render) | https://edplam-eurika.onrender.com |
 | Backend Staging (Render) | https://edplam-eurika-staging.onrender.com |
 | Telegram Bot | @miniapp_edpalm_bot |
@@ -27,21 +27,21 @@
 
 | Кейс | Ссылка |
 |---|---|
-| **Portal JWT** (Тестовый Ученик, +79246724447) | https://eurika-edpalm.vercel.app?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidGVzdF9zdHVkZW50XzAwMSIsIm5hbWUiOiJcdTA0MjJcdTA0MzVcdTA0NDFcdTA0NDJcdTA0M2VcdTA0MzJcdTA0NGJcdTA0MzkgXHUwNDIzXHUwNDQ3XHUwNDM1XHUwNDNkXHUwNDM4XHUwNDNhIiwicGhvbmUiOiIrNzkyNDY3MjQ0NDciLCJhZ2VudF9yb2xlIjoic2VsbGVyIiwiZXhwIjoxNzczOTY0Njc4fQ.o6ebuREoSFq3vjsdJ1P86S_fKV9pTrb6BTlqad6T39g |
-| **External Link** (новый лид, TTL 48ч) | https://eurika-edpalm.vercel.app?t=test_lead_12345:1774130278:654d783b4d968fd5078620daf960b0df2f8565bb2a6092127486d9409bfdbbd1 |
-| **Guest** (без авторизации) | https://eurika-edpalm.vercel.app (incognito) |
+| **Portal JWT** (Тестовый Ученик, +79246724447) | https://edplam-eurika.vercel.app?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidGVzdF9zdHVkZW50XzAwMSIsIm5hbWUiOiJcdTA0MjJcdTA0MzVcdTA0NDFcdTA0NDJcdTA0M2VcdTA0MzJcdTA0NGJcdTA0MzkgXHUwNDIzXHUwNDQ3XHUwNDM1XHUwNDNkXHUwNDM4XHUwNDNhIiwicGhvbmUiOiIrNzkyNDY3MjQ0NDciLCJhZ2VudF9yb2xlIjoic2VsbGVyIiwiZXhwIjoxNzczOTY0Njc4fQ.o6ebuREoSFq3vjsdJ1P86S_fKV9pTrb6BTlqad6T39g |
+| **External Link** (новый лид, TTL 48ч) | https://edplam-eurika.vercel.app?t=test_lead_12345:1774130278:654d783b4d968fd5078620daf960b0df2f8565bb2a6092127486d9409bfdbbd1 |
+| **Guest** (без авторизации) | https://edplam-eurika.vercel.app (incognito) |
 
 #### Support
 
 | Кейс | Ссылка |
 |---|---|
-| **Portal JWT** (Анна Тестова, +79161234567) | https://eurika-edpalm.vercel.app?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidGVzdF9jbGllbnRfMDAyIiwibmFtZSI6Ilx1MDQxMFx1MDQzZFx1MDQzZFx1MDQzMCBcdTA0MjJcdTA0MzVcdTA0NDFcdTA0NDJcdTA0M2VcdTA0MzJcdTA0MzAiLCJwaG9uZSI6Iis3OTE2MTIzNDU2NyIsImFnZW50X3JvbGUiOiJzdXBwb3J0IiwiZXhwIjoxNzczOTY0Njc4fQ.U9DMNay5LICJ4KA6wLU_KTydJxZGFiReL13QRsVElUk&role=support |
+| **Portal JWT** (Анна Тестова, +79161234567) | https://edplam-eurika.vercel.app?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidGVzdF9jbGllbnRfMDAyIiwibmFtZSI6Ilx1MDQxMFx1MDQzZFx1MDQzZFx1MDQzMCBcdTA0MjJcdTA0MzVcdTA0NDFcdTA0NDJcdTA0M2VcdTA0MzJcdTA0MzAiLCJwaG9uZSI6Iis3OTE2MTIzNDU2NyIsImFnZW50X3JvbGUiOiJzdXBwb3J0IiwiZXhwIjoxNzczOTY0Njc4fQ.U9DMNay5LICJ4KA6wLU_KTydJxZGFiReL13QRsVElUk&role=support |
 
 #### Teacher
 
 | Кейс | Ссылка |
 |---|---|
-| **Portal JWT** (Максим Школьников, +79031112233) | https://eurika-edpalm.vercel.app?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidGVzdF9zdHVkZW50XzAwMyIsIm5hbWUiOiJcdTA0MWNcdTA0MzBcdTA0M2FcdTA0NDFcdTA0MzhcdTA0M2MgXHUwNDI4XHUwNDNhXHUwNDNlXHUwNDNiXHUwNDRjXHUwNDNkXHUwNDM4XHUwNDNhXHUwNDNlXHUwNDMyIiwicGhvbmUiOiIrNzkwMzExMTIyMzMiLCJhZ2VudF9yb2xlIjoidGVhY2hlciIsImV4cCI6MTc3Mzk2NDY3OH0.jzcDqAM_SXnqWHrdikScSTAscKNTQhKho3LUNAg6Efg |
+| **Portal JWT** (Максим Школьников, +79031112233) | https://edplam-eurika.vercel.app?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidGVzdF9zdHVkZW50XzAwMyIsIm5hbWUiOiJcdTA0MWNcdTA0MzBcdTA0M2FcdTA0NDFcdTA0MzhcdTA0M2MgXHUwNDI4XHUwNDNhXHUwNDNlXHUwNDNiXHUwNDRjXHUwNDNkXHUwNDM4XHUwNDNhXHUwNDNlXHUwNDMyIiwicGhvbmUiOiIrNzkwMzExMTIyMzMiLCJhZ2VudF9yb2xlIjoidGVhY2hlciIsImV4cCI6MTc3Mzk2NDY3OH0.jzcDqAM_SXnqWHrdikScSTAscKNTQhKho3LUNAg6Efg |
 
 #### Telegram
 
@@ -53,8 +53,8 @@
 
 | Кейс | Ссылка |
 |---|---|
-| Dashboard Prod | https://eurika-edpalm.vercel.app/#/dashboard?key=eureka-dash-2026-prod |
-| Dashboard Staging | https://eurika-edpalm.vercel.app/#/dashboard?key=eureka-dash-2026-staging |
+| Dashboard Prod | https://edplam-eurika.vercel.app/#/dashboard?key=eureka-dash-2026-prod |
+| Dashboard Staging | https://edplam-eurika.vercel.app/#/dashboard?key=eureka-dash-2026-staging |
 
 #### amoCRM (проверка результатов)
 
@@ -74,7 +74,7 @@
 | 1.3 | Portal JWT (Teacher) | Открыть ссылку Teacher Portal JWT выше | Teacher | ⬜ | |
 | 1.4 | External link | Открыть ссылку External Link выше | Seller | ⬜ | |
 | 1.5 | Telegram Mini App | Telegram → @miniapp_edpalm_bot → Open | Все | ⬜ | |
-| 1.6 | Guest (без токена) | Открыть https://eurika-edpalm.vercel.app в incognito | Seller | ⬜ | |
+| 1.6 | Guest (без токена) | Открыть https://edplam-eurika.vercel.app в incognito | Seller | ⬜ | |
 | 1.7 | Expired token | Подождать 2ч+ → попробовать ссылку → должен отказать | Все | ⬜ | |
 
 ---
@@ -113,7 +113,7 @@
 | 4.1 | Поиск по продуктам | "Какие тарифы есть?" | Seller | ✅ | Базовый 12 500, Классный 70 000, Персональный 250 000 — из KB |
 | 4.2 | Поиск по компании | "Сколько учеников у EdPalm?" | Seller | ✅ | "Более 75 000 учеников" — из KB |
 | 4.3 | Поиск по аттестации | "Как проходит аттестация?" | Seller | ✅ | Онлайн-тесты, 30-35 вопросов, 2 попытки — из KB |
-| 4.4 | Поиск по зачислению | "Как начать учиться?" | Seller | ⚠️ | Агент не вызвал RAG. Фикс: добавлено «зачисление/запись/поступление» в триггеры промпта. Нужен re-deploy + ретест |
+| 4.4 | Поиск по зачислению | "Как начать учиться?" | Seller | ✅ | Фикс: добавлены триггеры в промпт (de33433). RAG возвращает 7 шагов зачисления из KB |
 | 4.5 | FAQ support | "Как получить справку?" | Support | ✅ | «Мои справки» в ЛК, бумажная копия за отдельную плату — из support KB |
 | 4.6 | Нет ответа в KB | Вопрос вне темы → guardrails | Все | ✅ | «Специализируюсь на вопросах обучения в EdPalm» — RAG не вызывается |
 | 4.7 | Namespace изоляция | Seller не видит support KB и наоборот | Все | ✅ | Support: «не нашла информации о тарифах». Seller: без деталей из support KB |
@@ -220,7 +220,7 @@
 | 12.6 | Неотвеченные вопросы | Список RAG misses | Seller | ⬜ | |
 | 12.7 | Фильтр по дате | Выбор периода → данные обновляются | Seller | ⬜ | |
 | 12.8 | Фильтр по роли | Seller / Support / All | Все | ⬜ | |
-| 12.9 | API key auth | Открыть https://eurika-edpalm.vercel.app/#/dashboard (без key) → 403 | Все | ⬜ | |
+| 12.9 | API key auth | Открыть https://edplam-eurika.vercel.app/#/dashboard (без key) → 403 | Все | ⬜ | |
 
 ---
 
@@ -240,7 +240,7 @@
 
 | # теста | Описание бага | Приоритет | Статус фикса | Дата |
 |---|---|---|---|---|
-| 4.4 | Seller не вызывает search_knowledge_base на вопрос «Как начать учиться?». Агент отвечает из промпта, минуя RAG. Причина: «зачисление/запись/поступление» не было в списке обязательных триггеров. Фикс: добавлены триггеры в prompt.py (PERSONALITY_CORE + SALES_ROLE_PROMPT) | Medium | ✅ Код исправлен, ожидает deploy | 2026-03-20 |
+| 4.4 | Seller не вызывал search_knowledge_base на «Как начать учиться?». Причина: «зачисление/запись» не было в триггерах. Фикс: de33433 | Medium | ✅ Исправлено и проверено | 2026-03-20 |
 
 ---
 
