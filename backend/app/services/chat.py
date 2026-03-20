@@ -52,12 +52,11 @@ class ChatService:
                 from app.services.summarizer import summarize_conversation
 
                 mem_repo = MemoryRepository()
-                idle_convs = mem_repo.get_idle_unsummarized(idle_minutes=2, min_messages=3)
-                user_convs = [c for c in idle_convs if c["actor_id"] == actor_id]
+                user_convs = mem_repo.get_user_unsummarized(actor_id, idle_minutes=2, min_messages=3)
                 if not user_convs:
                     return
                 logger.info("Triggered memory backfill for %s: %d conversations", actor_id, len(user_convs))
-                for conv in user_convs[:5]:  # max 5 at a time
+                for conv in user_convs:
                     summarize_conversation(
                         conversation_id=str(conv["id"]),
                         actor_id=conv["actor_id"],

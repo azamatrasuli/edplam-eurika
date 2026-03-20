@@ -343,3 +343,36 @@ class MemoryRepository:
         except (psycopg.Error, OSError):
             logger.warning("Failed to get idle unsummarized conversations", exc_info=True)
             return []
+
+    def get_user_unsummarized(self, actor_id: str, idle_minutes: int = 2, min_messages: int = 3) -> list[dict]:
+        """Get unsummarized conversations for a specific user."""
+        if not self._has_db():
+            return []
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return []
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT c.id, c.actor_id, c.agent_role, c.message_count
+                        FROM conversations c
+                        WHERE c.actor_id = %s
+                          AND c.updated_at < NOW() - (%s * INTERVAL '1 minute')
+                          AND c.status IN ('active', 'escalated')
+                          AND c.message_count >= %s
+                          AND c.archived_at IS NULL
+                          AND NOT EXISTS (
+                            SELECT 1 FROM agent_conversation_summaries s
+                            WHERE s.conversation_id = c.id
+                          )
+                        ORDER BY c.updated_at DESC
+                        LIMIT 5
+                        """,
+                        (actor_id, idle_minutes, min_messages),
+                    )
+                    rows = cur.fetchall()
+                    return [dict(r) for r in rows] if rows else []
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to get user unsummarized for %s", actor_id, exc_info=True)
+            return []
