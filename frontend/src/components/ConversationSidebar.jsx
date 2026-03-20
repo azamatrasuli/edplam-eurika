@@ -85,7 +85,7 @@ export function ConversationSidebar({
 
   // Collapsed sidebar (desktop only)
   const collapsedBar = (
-    <div data-sidebar className="flex flex-col items-center h-full py-3 gap-3 bg-surface border-r border-border-subtle">
+    <div data-sidebar className="flex flex-col items-center h-full py-3 gap-3 bg-surface-alt border-r border-border-subtle">
       <button
         onClick={toggleCollapsed}
         className="p-2 rounded-lg hover:bg-inset transition-colors"
@@ -114,7 +114,7 @@ export function ConversationSidebar({
   )
 
   const sidebarContent = (
-    <div data-sidebar className="flex flex-col h-full bg-surface border-r border-border-subtle">
+    <div data-sidebar className="flex flex-col h-full bg-surface-alt border-r border-border-subtle">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
         <span className="text-sm font-semibold text-fg tracking-tight">Чаты</span>

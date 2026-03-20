@@ -56,33 +56,33 @@
    ================================================================ */
 
 :root {
-  /* Surfaces */
-  --bg-primary: #f8f9fb;
-  --bg-secondary: #f0f2f5;
-  --bg-elevated: #ffffff;
-  --bg-inset: #edeef2;
+  /* Surfaces — warm cream, not sterile white */
+  --bg-primary: #f5f5f3;
+  --bg-secondary: #ebeae8;
+  --bg-elevated: #fefefd;
+  --bg-inset: #e3e2e0;
 
-  /* Text hierarchy */
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
+  /* Text hierarchy — Apple-style warm */
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-tertiary: #aeaeb2;
 
   /* Borders */
   --border-subtle: rgba(0, 0, 0, 0.06);
-  --border-default: rgba(0, 0, 0, 0.10);
+  --border-default: rgba(0, 0, 0, 0.11);
 
   /* Brand */
   --bubble-user-bg: #2d8f73;
   --bubble-user-color: #ffffff;
-  --input-border: #dde0e9;
+  --input-border: #d5d5d3;
   --input-focus-border: #2d8f73;
-  --voice-bg-hover: #dde0e9;
+  --voice-bg-hover: #d5d5d3;
   --indicator-dot: #2d8f73;
 
-  /* Glass surfaces */
-  --header-bg: rgba(255, 255, 255, 0.88);
+  /* Glass surfaces — warm */
+  --header-bg: rgba(254, 254, 253, 0.88);
   --header-border: rgba(0, 0, 0, 0.06);
-  --input-container-bg: rgba(255, 255, 255, 0.88);
+  --input-container-bg: rgba(254, 254, 253, 0.88);
   --input-container-border: rgba(0, 0, 0, 0.06);
 
   /* Status */
@@ -112,27 +112,27 @@
 /* --- System auto dark mode --- */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    /* Unified neutral dark palette — no blue tint */
-    --bg-primary: #111113;
-    --bg-secondary: #18181b;
-    --bg-elevated: #1f1f23;
-    --bg-inset: #27272a;
-    --text-primary: #ececef;
-    --text-secondary: #9c9ca4;
-    --text-tertiary: #63636b;
-    --border-subtle: rgba(255, 255, 255, 0.07);
-    --border-default: rgba(255, 255, 255, 0.12);
+    /* Soft charcoal — comfortable, not black */
+    --bg-primary: #1e1e20;
+    --bg-secondary: #161617;
+    --bg-elevated: #2a2a2c;
+    --bg-inset: #252527;
+    --text-primary: #e5e5e7;
+    --text-secondary: #8e8e93;
+    --text-tertiary: #636366;
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-default: rgba(255, 255, 255, 0.14);
     --bubble-user-bg: #2d8f73;
     --bubble-user-color: #ffffff;
-    --input-border: #2e2e33;
+    --input-border: #38383b;
     --input-focus-border: #5bb89a;
-    --voice-bg-hover: #333338;
+    --voice-bg-hover: #333336;
     --indicator-dot: #3daa8a;
-    --header-bg: rgba(17, 17, 19, 0.92);
-    --header-border: rgba(255, 255, 255, 0.07);
+    --header-bg: rgba(30, 30, 32, 0.92);
+    --header-border: rgba(255, 255, 255, 0.08);
     --status-online: #22c55e;
-    --input-container-bg: rgba(17, 17, 19, 0.92);
-    --input-container-border: rgba(255, 255, 255, 0.07);
+    --input-container-bg: rgba(30, 30, 32, 0.92);
+    --input-container-border: rgba(255, 255, 255, 0.08);
     --error-bg: #2d1518;
     --error-color: #fca5a5;
     --error-border: #5c2024;
@@ -147,27 +147,27 @@
 
 /* --- Telegram / manual dark override --- */
 [data-theme="dark"] {
-  /* Unified neutral dark palette — no blue tint */
-  --bg-primary: #111113;
-  --bg-secondary: #18181b;
-  --bg-elevated: #1f1f23;
-  --bg-inset: #27272a;
-  --text-primary: #ececef;
-  --text-secondary: #9c9ca4;
-  --text-tertiary: #63636b;
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-default: rgba(255, 255, 255, 0.12);
+  /* Soft charcoal — comfortable, not black */
+  --bg-primary: #1e1e20;
+  --bg-secondary: #161617;
+  --bg-elevated: #2a2a2c;
+  --bg-inset: #252527;
+  --text-primary: #e5e5e7;
+  --text-secondary: #8e8e93;
+  --text-tertiary: #636366;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-default: rgba(255, 255, 255, 0.14);
   --bubble-user-bg: #2d8f73;
   --bubble-user-color: #ffffff;
-  --input-border: #2e2e33;
+  --input-border: #38383b;
   --input-focus-border: #5bb89a;
-  --voice-bg-hover: #333338;
+  --voice-bg-hover: #333336;
   --indicator-dot: #3daa8a;
-  --header-bg: rgba(17, 17, 19, 0.92);
-  --header-border: rgba(255, 255, 255, 0.07);
+  --header-bg: rgba(30, 30, 32, 0.92);
+  --header-border: rgba(255, 255, 255, 0.08);
   --status-online: #22c55e;
-  --input-container-bg: rgba(17, 17, 19, 0.92);
-  --input-container-border: rgba(255, 255, 255, 0.07);
+  --input-container-bg: rgba(30, 30, 32, 0.92);
+  --input-container-border: rgba(255, 255, 255, 0.08);
   --error-bg: #2d1518;
   --error-color: #fca5a5;
   --error-border: #5c2024;

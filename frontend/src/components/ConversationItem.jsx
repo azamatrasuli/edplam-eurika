@@ -217,7 +217,7 @@ export function ConversationItem({ conversation, isActive, onSelect, onArchive, 
           className={`group relative flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg transition-colors duration-100 ${
             isActive
               ? 'bg-brand/8 border-l-2 border-brand text-fg'
-              : 'bg-surface hover:bg-inset text-fg'
+              : 'bg-surface-alt hover:bg-inset text-fg'
           }`}
           style={{
             transform: swipeX ? `translateX(${swipeX}px)` : undefined,
