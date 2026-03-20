@@ -26,6 +26,7 @@ export function ConversationSidebar({
   hasMore,
   isOpen,
   isCreating,
+  newChatDisabled,
   onClose,
   archivedConvs,
   archivedLoading,
@@ -97,7 +98,7 @@ export function ConversationSidebar({
       </button>
       <button
         onClick={onNewChat}
-        disabled={isCreating}
+        disabled={isCreating || newChatDisabled}
         className="p-2 rounded-lg bg-brand text-white hover:bg-brand-hover transition-colors active:scale-95 disabled:opacity-50"
         title="Новый чат"
       >
@@ -121,7 +122,7 @@ export function ConversationSidebar({
         <div className="flex items-center gap-1.5">
           <button
             onClick={onNewChat}
-            disabled={isCreating}
+            disabled={isCreating || newChatDisabled}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand bg-brand-subtle border border-brand/20 rounded-lg hover:bg-brand/15 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-default"
           >
             {isCreating ? (
