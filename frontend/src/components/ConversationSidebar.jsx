@@ -1,6 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { listConversations } from '../api/client'
-import { buildAuthPayload } from '../lib/authContext'
+import { useEffect, useRef, useState } from 'react'
 import { ConversationItem } from './ConversationItem'
 
 function SidebarSpinner() {
@@ -29,14 +27,14 @@ export function ConversationSidebar({
   isOpen,
   isCreating,
   onClose,
-  auth,
-  agentRole,
+  archivedConvs,
+  archivedLoading,
+  onLoadArchived,
+  onUnarchive,
 }) {
   const [localQuery, setLocalQuery] = useState(searchQuery || '')
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1')
   const [showArchived, setShowArchived] = useState(false)
-  const [archivedConvs, setArchivedConvs] = useState([])
-  const [archivedLoading, setArchivedLoading] = useState(false)
   const searchTimerRef = useRef(null)
   const listRef = useRef(null)
 
@@ -67,25 +65,9 @@ export function ConversationSidebar({
     })
   }
 
-  // Load archived conversations
-  const loadArchived = useCallback(async () => {
-    const authPayload = auth || buildAuthPayload()
-    if (!authPayload) return
-    setArchivedLoading(true)
-    try {
-      const data = await listConversations(authPayload, agentRole, { offset: 0, limit: 50, includeArchived: true })
-      // Filter to only archived ones
-      setArchivedConvs(data.conversations.filter((c) => c.archived_at))
-    } catch (e) {
-      console.error('Failed to load archived:', e)
-    } finally {
-      setArchivedLoading(false)
-    }
-  }, [auth, agentRole])
-
   function toggleArchived() {
-    if (!showArchived) {
-      loadArchived()
+    if (!showArchived && onLoadArchived) {
+      onLoadArchived()
     }
     setShowArchived((prev) => !prev)
   }
@@ -245,15 +227,16 @@ export function ConversationSidebar({
                 {!archivedLoading && archivedConvs.length === 0 && (
                   <div className="text-center text-xs text-fg-muted py-4">Нет архивных чатов</div>
                 )}
-                {archivedConvs.map((conv) => (
+                {(archivedConvs || []).map((conv) => (
                   <div key={conv.id} className="opacity-60">
                     <ConversationItem
                       conversation={conv}
                       isActive={false}
                       onSelect={onSelect}
-                      onArchive={onArchive}
+                      onArchive={onUnarchive || onArchive}
                       onDelete={onDelete}
                       onRename={onRename}
+                      archiveLabel="Восстановить"
                     />
                   </div>
                 ))}

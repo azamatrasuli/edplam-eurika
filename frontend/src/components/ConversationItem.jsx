@@ -26,7 +26,7 @@ function ArchiveIcon({ size = 14 }) {
   )
 }
 
-export function ConversationItem({ conversation, isActive, onSelect, onArchive, onDelete, onRename }) {
+export function ConversationItem({ conversation, isActive, onSelect, onArchive, onDelete, onRename, archiveLabel }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editTitle, setEditTitle] = useState('')
@@ -40,7 +40,7 @@ export function ConversationItem({ conversation, isActive, onSelect, onArchive, 
   const touchRef = useRef({ startX: 0, startY: 0, started: false, locked: false })
 
   const title = conversation.title || conversation.last_user_message || 'Новый чат'
-  const time = timeAgo(conversation.updated_at)
+  const time = timeAgo(conversation.archived_at ? conversation.created_at : conversation.updated_at)
 
   // Flash animation when title changes reactively
   useEffect(() => {
@@ -281,7 +281,7 @@ export function ConversationItem({ conversation, isActive, onSelect, onArchive, 
             className="flex items-center gap-2.5 w-full text-left px-3 py-2 text-sm hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
           >
             <ArchiveIcon size={14} />
-            Архивировать
+            {archiveLabel || 'Архивировать'}
           </button>
           <div className="my-0.5 mx-2 border-t border-black/[0.06] dark:border-white/[0.06]" />
           <button

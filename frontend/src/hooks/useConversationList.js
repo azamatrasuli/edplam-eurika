@@ -17,6 +17,11 @@ export function useConversationList(auth, agentRole = 'sales', { onError } = {})
   const [activeId, setActiveId] = useState(null)
   const offsetRef = useRef(0)
 
+  // Archived conversations (reactive)
+  const [archivedConvs, setArchivedConvs] = useState([])
+  const [archivedLoading, setArchivedLoading] = useState(false)
+  const archivedLoadedRef = useRef(false)
+
   // Undo archive state
   const [archiveToast, setArchiveToast] = useState(null) // { id, conversation, title }
   const undoTimerRef = useRef(null)
@@ -77,14 +82,36 @@ export function useConversationList(auth, agentRole = 'sales', { onError } = {})
     }
   }, [auth, agentRole, load])
 
+  // Load archived conversations
+  const loadArchived = useCallback(async () => {
+    if (!auth) return
+    setArchivedLoading(true)
+    try {
+      const data = await listConversations(auth, agentRole, { offset: 0, limit: 50, includeArchived: true })
+      setArchivedConvs(data.conversations.filter((c) => c.archived_at))
+      archivedLoadedRef.current = true
+    } catch (e) {
+      console.error('Failed to load archived:', e)
+      onError?.('Не удалось загрузить архив')
+    } finally {
+      setArchivedLoading(false)
+    }
+  }, [auth, agentRole])
+
   const archive = useCallback(async (conversationId) => {
     // Save conversation data for undo
     const conv = conversations.find((c) => c.id === conversationId)
     const convIndex = conversations.findIndex((c) => c.id === conversationId)
 
-    // Optimistically remove from list
+    // Optimistically remove from active list
     setConversations((prev) => prev.filter((c) => c.id !== conversationId))
     setTotal((prev) => prev - 1)
+
+    // Optimistically add to archived list (if loaded)
+    if (conv) {
+      const archivedCopy = { ...conv, archived_at: new Date().toISOString() }
+      setArchivedConvs((prev) => [archivedCopy, ...prev])
+    }
 
     const wasActive = activeId === conversationId
     if (wasActive) setActiveId(null)
@@ -112,6 +139,7 @@ export function useConversationList(auth, agentRole = 'sales', { onError } = {})
           return next
         })
         setTotal((prev) => prev + 1)
+        setArchivedConvs((prev) => prev.filter((c) => c.id !== conversationId))
         if (wasActive) setActiveId(conversationId)
       }
     }
@@ -123,6 +151,9 @@ export function useConversationList(auth, agentRole = 'sales', { onError } = {})
     const { id, conversation, index, wasActive } = archiveToast
     setArchiveToast(null)
     clearTimeout(undoTimerRef.current)
+
+    // Optimistically remove from archived, add back to active
+    setArchivedConvs((prev) => prev.filter((c) => c.id !== id))
 
     try {
       await apiUnarchive(id, auth)
@@ -138,8 +169,33 @@ export function useConversationList(auth, agentRole = 'sales', { onError } = {})
     } catch (e) {
       console.error('Failed to unarchive conversation:', e)
       onError?.('Не удалось восстановить диалог')
+      // Restore archived entry on failure
+      if (conversation) {
+        setArchivedConvs((prev) => [{ ...conversation, archived_at: conversation.archived_at || new Date().toISOString() }, ...prev])
+      }
     }
   }, [auth, archiveToast])
+
+  // Unarchive from archive list (restore to active)
+  const unarchiveFromList = useCallback(async (conversationId) => {
+    const conv = archivedConvs.find((c) => c.id === conversationId)
+
+    // Optimistically move
+    setArchivedConvs((prev) => prev.filter((c) => c.id !== conversationId))
+
+    try {
+      await apiUnarchive(conversationId, auth)
+      if (conv) {
+        const restored = { ...conv, archived_at: null }
+        setConversations((prev) => [restored, ...prev])
+        setTotal((prev) => prev + 1)
+      }
+    } catch (e) {
+      console.error('Failed to unarchive:', e)
+      onError?.('Не удалось восстановить диалог')
+      if (conv) setArchivedConvs((prev) => [conv, ...prev])
+    }
+  }, [auth, archivedConvs])
 
   const dismissArchiveToast = useCallback(() => {
     setArchiveToast(null)
@@ -239,5 +295,9 @@ export function useConversationList(auth, agentRole = 'sales', { onError } = {})
     addConversation,
     updateTitle,
     bumpConversation,
-  }), [conversations, total, hasMore, loading, searchQuery, activeId, refresh, loadMore, search, archive, undoArchive, archiveToast, dismissArchiveToast, deleteConversation, rename, addConversation, updateTitle, bumpConversation])
+    archivedConvs,
+    archivedLoading,
+    loadArchived,
+    unarchiveFromList,
+  }), [conversations, total, hasMore, loading, searchQuery, activeId, refresh, loadMore, search, archive, undoArchive, archiveToast, dismissArchiveToast, deleteConversation, rename, addConversation, updateTitle, bumpConversation, archivedConvs, archivedLoading, loadArchived, unarchiveFromList])
 }

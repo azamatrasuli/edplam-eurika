@@ -252,8 +252,10 @@ export function ChatPage() {
         onRename={convList.rename}
         onSearch={convList.search}
         onLoadMore={convList.loadMore}
-        auth={auth}
-        agentRole={agentRole}
+        archivedConvs={convList.archivedConvs}
+        archivedLoading={convList.archivedLoading}
+        onLoadArchived={convList.loadArchived}
+        onUnarchive={convList.unarchiveFromList}
       />
 
       {/* Chat area */}
