@@ -63,8 +63,11 @@ def _escape_html(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def _notify_manager(reason: str, actor, conversation_id: str, summary: str) -> None:
-    """Send Telegram notification to manager about escalation."""
+def _notify_manager(
+    reason: str, actor, conversation_id: str, summary: str,
+    crm_lead_id: int | None = None,
+) -> None:
+    """Send rich Telegram notification to manager about escalation."""
     settings = get_settings()
     chat_id = settings.manager_telegram_chat_id
     bot_token = settings.telegram_bot_token
@@ -73,14 +76,60 @@ def _notify_manager(reason: str, actor, conversation_id: str, summary: str) -> N
         logger.warning("Manager Telegram notification not configured")
         return
 
-    display = _escape_html(actor.display_name or actor.actor_id)
+    esc = _escape_html
+    display = esc(actor.display_name or actor.actor_id)
+    agent_role = getattr(actor, "agent_role", "sales")
+    role_val = agent_role.value if hasattr(agent_role, "value") else str(agent_role)
+    role_label = "Поддержка" if role_val == "support" else "Продажи"
+
+    # Conversation summary — last 5 messages
+    conversation_summary = esc(summary[:800])
+    try:
+        from app.db.repository import ConversationRepository
+        repo = ConversationRepository()
+        messages = repo.get_messages(conversation_id, limit=10)
+        if messages:
+            lines = []
+            for m in messages[-5:]:
+                role_name = "Клиент" if m.role == "user" else "Агент"
+                lines.append(f"{role_name}: {esc(m.content[:150])}")
+            conversation_summary = "\n".join(lines)
+    except Exception:
+        pass  # fallback to summary[:800]
+
+    # Client profile
+    profile_snippet = ""
+    try:
+        from app.db.repository import ConversationRepository
+        repo = ConversationRepository()
+        profile = repo.get_user_profile(actor.actor_id)
+        if profile:
+            fio = profile.get("fio", "—")
+            phone = profile.get("phone", "—")
+            profile_snippet = f"\n<b>Профиль:</b> {esc(fio)}, тел: {esc(phone)}"
+            children = profile.get("children") or []
+            for child in children[:3]:
+                child_fio = child.get("fio", "—") if isinstance(child, dict) else "—"
+                child_grade = child.get("grade", "—") if isinstance(child, dict) else "—"
+                profile_snippet += f"\n  · {esc(str(child_fio))}, {child_grade} класс"
+    except Exception:
+        pass
+
+    # CRM link
+    crm_link = ""
+    if crm_lead_id:
+        crm_link = f"\n<b>CRM:</b> https://{settings.amocrm_subdomain}.amocrm.ru/leads/detail/{crm_lead_id}"
+
     text = (
-        f"<b>Эскалация от AI-агента Эврика</b>\n\n"
+        f"<b>⚠ Эскалация от AI-агента Эврика</b>\n\n"
+        f"<b>Роль:</b> {role_label}\n"
         f"<b>Клиент:</b> {display}\n"
         f"<b>Канал:</b> {actor.channel.value}\n"
-        f"<b>Причина:</b> {_escape_html(reason)}\n"
-        f"<b>ID диалога:</b> <code>{_escape_html(conversation_id)}</code>\n\n"
-        f"<b>Последнее сообщение агента:</b>\n{_escape_html(summary[:800])}"
+        f"<b>Причина:</b> {esc(reason)}"
+        f"{profile_snippet}"
+        f"{crm_link}\n\n"
+        f"<b>Последние сообщения:</b>\n{conversation_summary}\n\n"
+        f"<b>ID:</b> <code>{esc(conversation_id)}</code>"
     )
 
     try:
@@ -114,6 +163,23 @@ def _make_stream(
     if transcript is not None:
         meta_payload["transcript"] = transcript
     yield _sse("meta", meta_payload)
+
+    # Deliver pending manager messages (arrived via imBox while user was away)
+    try:
+        pending_mgr = chat_service.repo.get_undelivered_manager_messages(ctx.conversation.id)
+        if pending_mgr:
+            for msg in pending_mgr:
+                sender = msg.get("sender_name", "Менеджер")
+                yield _sse("manager_message", {
+                    "text": f"[{sender}]: {msg['content']}",
+                    "sender": sender,
+                    "created_at": msg["created_at"].isoformat() if msg.get("created_at") else None,
+                })
+            chat_service.repo.mark_manager_messages_delivered(
+                [str(m["id"]) for m in pending_mgr]
+            )
+    except Exception:
+        logger.debug("Failed to deliver pending manager messages", exc_info=True)
 
     # Resolve CRM context
     crm_context = chat_service.resolve_crm_context(actor)
@@ -164,13 +230,20 @@ def _make_stream(
     # Handle escalation
     if rag_metadata and rag_metadata.get("escalation"):
         reason = "Агент инициировал эскалацию"
+        crm_lead_id = None
         for tc in rag_metadata.get("tool_calls", []):
             if tc.get("name") == "escalate_to_manager":
                 reason = tc.get("args", {}).get("reason", reason)
+                # Extract lead_id from tool result
+                try:
+                    tc_result = json.loads(tc.get("result", "{}"))
+                    crm_lead_id = tc_result.get("lead_id")
+                except (json.JSONDecodeError, TypeError):
+                    pass
                 break
 
-        chat_service.repo.update_conversation_status(ctx.conversation.id, "escalated")
-        _notify_manager(reason, actor, ctx.conversation.id, answer)
+        chat_service.repo.update_escalation_metadata(ctx.conversation.id, reason, crm_lead_id)
+        _notify_manager(reason, actor, ctx.conversation.id, answer, crm_lead_id=crm_lead_id)
         event_tracker.track_escalation(
             ctx.conversation.id, actor.actor_id, reason,
             channel=actor.channel.value,
@@ -240,7 +313,11 @@ def start_conversation(req: StartConversationRequest) -> StartConversationRespon
             "Здравствуйте! Я Эврика, виртуальный менеджер EdPalm."
         )
     return StartConversationResponse(
-        conversation_id=ctx.conversation.id, actor=actor, greeting=greeting
+        conversation_id=ctx.conversation.id,
+        actor=actor,
+        greeting=greeting,
+        status=ctx.conversation.status,
+        escalated_reason=ctx.conversation.escalated_reason,
     )
 
 
@@ -253,7 +330,13 @@ def conversation_messages(conversation_id: str, auth: AuthPayload) -> Conversati
     if not conv or conv != actor.actor_id:
         raise HTTPException(403, "Access denied")
     messages = chat_service.get_messages(conversation_id)
-    return ConversationMessagesResponse(conversation_id=conversation_id, messages=messages)
+    conv_status = chat_service.repo.get_conversation_status(conversation_id)
+    return ConversationMessagesResponse(
+        conversation_id=conversation_id,
+        messages=messages,
+        status=conv_status.get("status", "active") if conv_status else "active",
+        escalated_reason=conv_status.get("escalated_reason") if conv_status else None,
+    )
 
 
 @router.post("/chat/stream")
@@ -398,6 +481,25 @@ async def amocrm_chat_webhook(scope_id: str, request: Request):
 
         actor_id = imbox_service.repo.find_actor_by_chat_conversation_id(conversation_id)
         if actor_id and text:
+            # Check for resolution commands
+            cmd = text.strip().lower()
+            if cmd in ("/resolve", "/close", "/готово"):
+                agent_conv_id = chat_service.repo.find_escalated_conversation(actor_id)
+                if agent_conv_id:
+                    resolved = chat_service.repo.resolve_escalation(
+                        agent_conv_id, resolved_by=sender.get("name", "manager"),
+                    )
+                    if resolved:
+                        event_tracker.track(
+                            "escalation_resolved",
+                            conversation_id=agent_conv_id,
+                            actor_id=actor_id,
+                            data={"resolved_by": sender.get("name", "manager"), "source": "imbox"},
+                        )
+                        logger.info("Escalation resolved via imBox command for conv=%s", agent_conv_id)
+                return {"status": "resolved"}
+
+            # Save raw manager message
             imbox_service.repo.save_manager_message(
                 actor_id=actor_id,
                 content=text,
@@ -405,5 +507,20 @@ async def amocrm_chat_webhook(scope_id: str, request: Request):
                 amocrm_msgid=msgid,
                 sender_name=sender.get("name"),
             )
+
+            # Inject into agent conversation so client sees it
+            try:
+                agent_conv_id = chat_service.repo.find_escalated_conversation(actor_id)
+                if agent_conv_id:
+                    sender_name = sender.get("name", "Менеджер")
+                    chat_service.repo.save_message(
+                        conversation_id=agent_conv_id,
+                        role="assistant",
+                        content=f"[{sender_name}]: {text}",
+                        metadata={"source": "manager", "sender_name": sender_name},
+                    )
+                    logger.info("Manager message injected into conv=%s for actor=%s", agent_conv_id, actor_id)
+            except Exception:
+                logger.warning("Failed to inject manager message into conversation", exc_info=True)
 
     return {"status": "ok"}

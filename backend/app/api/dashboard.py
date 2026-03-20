@@ -84,6 +84,28 @@ def dashboard_escalations(
     return PaginatedEscalations(**data)
 
 
+@router.post("/escalations/{conversation_id}/resolve")
+def resolve_escalation(
+    conversation_id: str,
+    _key: str = Depends(_verify_dashboard_key),
+) -> dict:
+    """De-escalate a conversation. Called from dashboard or manager tools."""
+    from app.db.repository import ConversationRepository
+    from app.db.events import EventTracker
+
+    repo = ConversationRepository()
+    resolved = repo.resolve_escalation(conversation_id, resolved_by="dashboard")
+    if not resolved:
+        raise HTTPException(404, "Conversation not found or not escalated")
+
+    EventTracker().track(
+        "escalation_resolved",
+        conversation_id=conversation_id,
+        data={"resolved_by": "dashboard", "source": "dashboard_api"},
+    )
+    return {"status": "resolved", "conversation_id": conversation_id}
+
+
 @router.get("/unanswered", response_model=list[UnansweredQuestion])
 def dashboard_unanswered(
     date_from: date | None = Query(default=None),

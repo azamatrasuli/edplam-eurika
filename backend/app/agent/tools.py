@@ -540,16 +540,79 @@ class ToolExecutor:
         )
 
     def _tool_escalate_to_manager(self, reason: str) -> ToolResult:
+        crm_lead_id = self._ensure_escalation_deal(reason)
         return ToolResult(
             name="escalate_to_manager",
             result=json.dumps({
                 "escalated": True,
                 "reason": reason,
+                "lead_id": crm_lead_id,
                 "message": "Диалог передан менеджеру. Он свяжется с клиентом в ближайшее время.",
             }, ensure_ascii=False),
             is_escalation=True,
             escalation_reason=reason,
         )
+
+    def _ensure_escalation_deal(self, reason: str) -> int | None:
+        """Create or find CRM deal for escalation. Idempotent — no duplicate deals."""
+        if not self.conversation_id:
+            return None
+        try:
+            # Check if deal already exists for this conversation
+            existing = self.repo.get_deal_mapping(self.conversation_id)
+            if existing and existing.get("amocrm_lead_id"):
+                lead_id = existing["amocrm_lead_id"]
+                try:
+                    self.crm.add_note(lead_id, f"⚠ Эскалация ИИ-агента: {reason}")
+                except Exception:
+                    logger.warning("Failed to add escalation note to lead %d", lead_id)
+                return lead_id
+
+            # Find or create contact
+            contact_id = None
+            if self.actor_id:
+                contact_id = self.repo.get_contact_mapping(self.actor_id)  # returns int | None
+
+            if not contact_id:
+                tg_id = self._extract_telegram_id()
+                contact, _ = self.crm.find_or_create_contact(
+                    telegram_id=tg_id, name="Клиент (эскалация)",
+                )
+                if contact:
+                    contact_id = contact.id
+                    if self.actor_id:
+                        self.repo.save_contact_mapping(self.actor_id, contact.id)
+
+            if not contact_id:
+                return None  # CRM unavailable — non-blocking
+
+            # Role-aware pipeline
+            settings = get_settings()
+            pipeline_id = (
+                settings.amocrm_service_pipeline_id
+                if self.agent_role == "support"
+                else settings.amocrm_sales_pipeline_id
+            )
+
+            lead = self.crm.create_lead(
+                name=f"Эскалация AI: {reason[:60]}",
+                contact_id=contact_id,
+                pipeline_id=pipeline_id,
+            )
+            if lead:
+                self.crm.add_note(
+                    lead.id,
+                    f"Автоматическая эскалация от ИИ-агента.\nПричина: {reason}",
+                )
+                self.repo.save_deal_mapping(
+                    self.conversation_id, lead.id, contact_id, pipeline_id=pipeline_id,
+                )
+                logger.info("Escalation deal created: lead=%d contact=%d conv=%s", lead.id, contact_id, self.conversation_id)
+                return lead.id
+            return None
+        except Exception:
+            logger.warning("Failed to create escalation deal (non-blocking)", exc_info=True)
+            return None
 
     def _tool_create_manager_task(
         self,

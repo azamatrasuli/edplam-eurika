@@ -35,8 +35,11 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
     setLoading(true)
     setTyping(false)
     setError('')
-    setEscalated(false)
-    setEscalationReason('')
+    // Only reset escalation on forced new conversation
+    if (forceNew) {
+      setEscalated(false)
+      setEscalationReason('')
+    }
 
     try {
       const data = await startConversation(auth, convId, agentRole, forceNew)
@@ -44,6 +47,15 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
       conversationIdRef.current = data.conversation_id
       const storageKey = getStorageKey(agentRole)
       try { sessionStorage.setItem(storageKey, data.conversation_id) } catch { /* quota */ }
+
+      // Restore escalation state from backend
+      if (data.status === 'escalated') {
+        setEscalated(true)
+        setEscalationReason(data.escalated_reason || '')
+      } else {
+        setEscalated(false)
+        setEscalationReason('')
+      }
 
       // Try to restore message history for existing conversations
       if (convId && data.conversation_id === convId && !forceNew) {
@@ -58,8 +70,14 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
                   role: m.role,
                   content: m.content,
                   fromHistory: true,
+                  type: m.metadata?.source === 'manager' ? 'manager' : undefined,
                 })),
             )
+            // Also check escalation from messages endpoint
+            if (historyData.status === 'escalated') {
+              setEscalated(true)
+              setEscalationReason(historyData.escalated_reason || '')
+            }
             setStarted(true)
             setLoading(false)
             return data
@@ -204,6 +222,19 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
           if (event === 'escalation') {
             setEscalated(true)
             setEscalationReason(payload.reason || '')
+          }
+
+          if (event === 'manager_message') {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content: payload.text,
+                type: 'manager',
+                senderName: payload.sender,
+              },
+            ])
           }
 
           // Title update from backend — push to sidebar

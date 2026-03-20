@@ -13,14 +13,19 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS conversations (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  actor_id    TEXT NOT NULL,
-  channel     TEXT NOT NULL,
-  agent_role  TEXT NOT NULL DEFAULT 'sales',
-  status      TEXT NOT NULL DEFAULT 'active',
-  metadata    JSONB NOT NULL DEFAULT '{}'::JSONB,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_id          TEXT NOT NULL,
+  channel           TEXT NOT NULL,
+  agent_role        TEXT NOT NULL DEFAULT 'sales',
+  status            TEXT NOT NULL DEFAULT 'active',
+  metadata          JSONB NOT NULL DEFAULT '{}'::JSONB,
+  escalated_at      TIMESTAMPTZ,
+  escalated_reason  TEXT,
+  escalated_lead_id BIGINT,
+  resolved_at       TIMESTAMPTZ,
+  resolved_by       TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_conversations_actor_updated
@@ -124,18 +129,24 @@ CREATE INDEX IF NOT EXISTS idx_agent_chat_mapping_conversation
   ON agent_chat_mapping(amocrm_conversation_id);
 
 CREATE TABLE IF NOT EXISTS agent_manager_messages (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  actor_id        TEXT NOT NULL,
-  conversation_id TEXT,
-  amocrm_msgid    TEXT,
-  sender_name     TEXT,
-  content         TEXT NOT NULL,
-  delivered       BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_id              TEXT NOT NULL,
+  conversation_id       TEXT,
+  agent_conversation_id UUID REFERENCES conversations(id),
+  amocrm_msgid          TEXT,
+  sender_name           TEXT,
+  content               TEXT NOT NULL,
+  delivered             BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_agent_manager_messages_actor
   ON agent_manager_messages(actor_id, created_at DESC);
+
+-- Escalation: open escalations for scheduler
+CREATE INDEX IF NOT EXISTS idx_conversations_escalation_open
+  ON conversations(status, updated_at)
+  WHERE status = 'escalated' AND resolved_at IS NULL;
 
 -- ============================================================================
 -- 5. Onboarding User Profiles

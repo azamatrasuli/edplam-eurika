@@ -12,10 +12,11 @@ scheduler = BackgroundScheduler()
 
 
 def start_scheduler() -> None:
-    """Start background jobs for payment checking, follow-ups, and memory summarization."""
+    """Start background jobs for payment checking, follow-ups, memory, and auto-escalation."""
     from app.services.payment import check_pending_payments
     from app.services.followup import process_pending_followups
     from app.services.summarizer import summarize_idle_conversations
+    from app.services.auto_escalation import process_idle_escalations
 
     scheduler.add_job(
         check_pending_payments,
@@ -38,8 +39,18 @@ def start_scheduler() -> None:
         id="summarize_conversations",
         replace_existing=True,
     )
+    scheduler.add_job(
+        process_idle_escalations,
+        "interval",
+        minutes=30,
+        id="auto_escalate_idle",
+        replace_existing=True,
+    )
     scheduler.start()
-    logger.info("Scheduler started: check_payments (60s), process_followups (5min), summarize_conversations (3min)")
+    logger.info(
+        "Scheduler started: check_payments (60s), process_followups (5min), "
+        "summarize_conversations (3min), auto_escalate_idle (30min)"
+    )
 
 
 def stop_scheduler() -> None:

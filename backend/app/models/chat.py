@@ -54,6 +54,8 @@ class StartConversationResponse(BaseModel):
     conversation_id: str
     actor: ActorContext
     greeting: str
+    status: str = "active"
+    escalated_reason: str | None = None
 
 
 class ChatStreamRequest(BaseModel):
@@ -81,6 +83,8 @@ class ChatMessage(BaseModel):
 class ConversationMessagesResponse(BaseModel):
     conversation_id: str
     messages: list[ChatMessage]
+    status: str = "active"
+    escalated_reason: str | None = None
 
 
 # ---- Chat History models -------------------------------------------------

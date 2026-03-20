@@ -26,6 +26,8 @@ class StoredConversation:
     title: str | None = None
     message_count: int = 0
     last_user_message: str | None = None
+    escalated_at: datetime | None = None
+    escalated_reason: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     archived_at: datetime | None = None
@@ -131,8 +133,9 @@ class ConversationRepository:
                 if conversation_id and not force_new:
                     cur.execute(
                         """
-                        select id, actor_id, channel, agent_role,
+                        select id, actor_id, channel, agent_role, status,
                                title, message_count, last_user_message,
+                               escalated_at, escalated_reason,
                                created_at, updated_at, archived_at
                         from conversations
                         where id = %s and actor_id = %s and agent_role = %s
@@ -146,9 +149,12 @@ class ConversationRepository:
                             actor_id=row["actor_id"],
                             channel=row["channel"],
                             agent_role=row.get("agent_role", "sales") or "sales",
+                            status=row.get("status", "active") or "active",
                             title=row.get("title"),
                             message_count=row.get("message_count", 0) or 0,
                             last_user_message=row.get("last_user_message"),
+                            escalated_at=row.get("escalated_at"),
+                            escalated_reason=row.get("escalated_reason"),
                             created_at=row.get("created_at"),
                             updated_at=row.get("updated_at"),
                             archived_at=row.get("archived_at"),
@@ -542,6 +548,169 @@ class ConversationRepository:
                 conn.commit()
         except (psycopg.Error, OSError):
             logger.warning("Failed to update conversation status for conv=%s", conversation_id, exc_info=True)
+
+    def get_conversation_status(self, conversation_id: str) -> dict | None:
+        """Return status + escalation fields for a conversation."""
+        if not self._has_db():
+            return None
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return None
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT status, escalated_reason, escalated_at,
+                               escalated_lead_id, resolved_at, resolved_by
+                        FROM conversations WHERE id = %s
+                        """,
+                        (conversation_id,),
+                    )
+                    row = cur.fetchone()
+                    return dict(row) if row else None
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to get conversation status for conv=%s", conversation_id, exc_info=True)
+            return None
+
+    def update_escalation_metadata(
+        self, conversation_id: str, reason: str, lead_id: int | None = None,
+    ) -> None:
+        """Set escalation columns on a conversation. Idempotent (COALESCE preserves first values)."""
+        if not self._has_db():
+            return
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    raise OSError("No DB connection")
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        UPDATE conversations
+                        SET status = 'escalated',
+                            escalated_at = COALESCE(escalated_at, NOW()),
+                            escalated_reason = %s,
+                            escalated_lead_id = COALESCE(escalated_lead_id, %s)
+                        WHERE id = %s
+                        """,
+                        (reason, lead_id, conversation_id),
+                    )
+                conn.commit()
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to update escalation metadata for conv=%s", conversation_id, exc_info=True)
+
+    def resolve_escalation(self, conversation_id: str, resolved_by: str = "manager") -> bool:
+        """De-escalate a conversation. Returns True if actually resolved."""
+        if not self._has_db():
+            return False
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return False
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        UPDATE conversations
+                        SET status = 'active', resolved_at = NOW(), resolved_by = %s
+                        WHERE id = %s AND status = 'escalated'
+                        RETURNING id
+                        """,
+                        (resolved_by, conversation_id),
+                    )
+                    row = cur.fetchone()
+                conn.commit()
+                return row is not None
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to resolve escalation for conv=%s", conversation_id, exc_info=True)
+            return False
+
+    def find_escalated_conversation(self, actor_id: str) -> str | None:
+        """Find most recent open escalated conversation for an actor."""
+        if not self._has_db():
+            return None
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return None
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT id FROM conversations
+                        WHERE actor_id = %s AND status = 'escalated' AND resolved_at IS NULL
+                        ORDER BY updated_at DESC LIMIT 1
+                        """,
+                        (actor_id,),
+                    )
+                    row = cur.fetchone()
+                    return str(row["id"]) if row else None
+        except (psycopg.Error, OSError):
+            return None
+
+    def get_undelivered_manager_messages(self, agent_conversation_id: str) -> list[dict]:
+        """Get undelivered manager messages for a conversation."""
+        if not self._has_db():
+            return []
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return []
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT id, content, sender_name, created_at
+                        FROM agent_manager_messages
+                        WHERE agent_conversation_id = %s AND delivered = FALSE
+                        ORDER BY created_at ASC
+                        """,
+                        (agent_conversation_id,),
+                    )
+                    return [dict(r) for r in cur.fetchall()]
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to get undelivered manager messages", exc_info=True)
+            return []
+
+    def mark_manager_messages_delivered(self, message_ids: list[str]) -> None:
+        """Mark manager messages as delivered."""
+        if not self._has_db() or not message_ids:
+            return
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "UPDATE agent_manager_messages SET delivered = TRUE WHERE id = ANY(%s)",
+                        ([str(mid) for mid in message_ids],),
+                    )
+                conn.commit()
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to mark manager messages delivered", exc_info=True)
+
+    def get_idle_support_conversations(self, hours: int = 48) -> list[dict]:
+        """Find active support conversations with no activity for N hours."""
+        if not self._has_db():
+            return []
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return []
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT id, actor_id, channel, title, updated_at
+                        FROM conversations
+                        WHERE agent_role = 'support'
+                          AND status = 'active'
+                          AND updated_at < NOW() - make_interval(hours => %s)
+                          AND message_count >= 2
+                        ORDER BY updated_at ASC
+                        LIMIT 50
+                        """,
+                        (hours,),
+                    )
+                    return [dict(r) for r in cur.fetchall()]
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to get idle support conversations", exc_info=True)
+            return []
 
     # ---- Chat API mapping methods -------------------------------------------
 
