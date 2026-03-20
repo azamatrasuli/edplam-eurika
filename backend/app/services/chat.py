@@ -35,7 +35,40 @@ class ChatService:
     ) -> StreamContext:
         conv = self.repo.start_or_resume_conversation(actor, conversation_id, force_new=force_new)
         history = self.repo.get_messages(conv.id, limit=50)
+
+        # On new conversation start, trigger background summarization of past idle conversations
+        if force_new or not history:
+            self._trigger_user_summarization(actor.actor_id)
+
         return StreamContext(conversation=conv, actor=actor, history=history)
+
+    def _trigger_user_summarization(self, actor_id: str) -> None:
+        """Summarize past idle conversations for this user in background thread."""
+        import threading
+
+        def _run():
+            try:
+                from app.db.memory_repository import MemoryRepository
+                from app.services.summarizer import summarize_conversation
+
+                mem_repo = MemoryRepository()
+                idle_convs = mem_repo.get_idle_unsummarized(idle_minutes=2, min_messages=3)
+                user_convs = [c for c in idle_convs if c["actor_id"] == actor_id]
+                if not user_convs:
+                    return
+                logger.info("Triggered memory backfill for %s: %d conversations", actor_id, len(user_convs))
+                for conv in user_convs[:5]:  # max 5 at a time
+                    summarize_conversation(
+                        conversation_id=str(conv["id"]),
+                        actor_id=conv["actor_id"],
+                        agent_role=conv.get("agent_role", "sales"),
+                        conv_repo=self.repo,
+                        mem_repo=mem_repo,
+                    )
+            except Exception:
+                logger.warning("Background summarization failed for %s", actor_id, exc_info=True)
+
+        threading.Thread(target=_run, daemon=True).start()
 
     def generate_greeting(self, actor: ActorContext, conversation_id: str) -> str:
         """Generate a personalized greeting based on channel, time, and profile."""

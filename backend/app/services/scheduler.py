@@ -34,12 +34,12 @@ def start_scheduler() -> None:
     scheduler.add_job(
         summarize_idle_conversations,
         "interval",
-        minutes=10,
+        minutes=3,
         id="summarize_conversations",
         replace_existing=True,
     )
     scheduler.start()
-    logger.info("Scheduler started: check_payments (60s), process_followups (5min), summarize_conversations (10min)")
+    logger.info("Scheduler started: check_payments (60s), process_followups (5min), summarize_conversations (3min)")
 
 
 def stop_scheduler() -> None:

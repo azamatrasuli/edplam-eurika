@@ -65,8 +65,8 @@ class Settings(BaseSettings):
 
     # --- Conversational Memory ---
     memory_enabled: bool = Field(default=True, alias="MEMORY_ENABLED")
-    memory_idle_minutes: int = Field(default=30, alias="MEMORY_IDLE_MINUTES")
-    memory_min_messages: int = Field(default=4, alias="MEMORY_MIN_MESSAGES")
+    memory_idle_minutes: int = Field(default=5, alias="MEMORY_IDLE_MINUTES")
+    memory_min_messages: int = Field(default=3, alias="MEMORY_MIN_MESSAGES")
     memory_max_context_tokens: int = Field(default=800, alias="MEMORY_MAX_CONTEXT_TOKENS")
     memory_summary_top_k: int = Field(default=3, alias="MEMORY_SUMMARY_TOP_K")
     memory_atoms_top_k: int = Field(default=5, alias="MEMORY_ATOMS_TOP_K")
