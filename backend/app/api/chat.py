@@ -217,6 +217,7 @@ def _make_stream(
 def start_conversation(req: StartConversationRequest) -> StartConversationResponse:
     actor = auth_service.resolve(req.auth)
     actor = actor.model_copy(update={"agent_role": req.agent_role})
+    enrich_ctx(user_id=actor.actor_id, agent_role=req.agent_role.value)
     ctx = chat_service.ensure_conversation(actor, conversation_id=req.conversation_id, force_new=req.force_new)
     # Generate greeting only for new conversations (no history)
     if not ctx.history:
@@ -244,6 +245,7 @@ def start_conversation(req: StartConversationRequest) -> StartConversationRespon
 @router.post("/conversations/{conversation_id}/messages", response_model=ConversationMessagesResponse)
 def conversation_messages(conversation_id: str, auth: AuthPayload) -> ConversationMessagesResponse:
     actor = auth_service.resolve(auth)
+    enrich_ctx(user_id=actor.actor_id, conversation_id=conversation_id)
     # Verify the conversation belongs to this actor
     conv = chat_service.repo.get_conversation_owner(conversation_id)
     if not conv or conv != actor.actor_id:
@@ -273,7 +275,8 @@ async def chat_transcribe(
     """Accept audio, transcribe via Whisper, return text (no LLM call)."""
     # Validate auth before consuming Whisper credits
     auth = AuthPayload.model_validate_json(auth_json)
-    auth_service.resolve(auth)
+    actor = auth_service.resolve(auth)
+    enrich_ctx(user_id=actor.actor_id)
     ext = (audio.filename or "audio.webm").rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_FORMATS:
         return error_response("audio_format")
@@ -292,7 +295,8 @@ async def chat_tts(request: Request) -> StreamingResponse:
     body = await request.json()
 
     auth = AuthPayload.model_validate(body.get("auth", {}))
-    auth_service.resolve(auth)
+    actor = auth_service.resolve(auth)
+    enrich_ctx(user_id=actor.actor_id)
 
     text = (body.get("text") or "").strip()
     if not text:
@@ -337,7 +341,9 @@ async def chat_voice(
     auth = AuthPayload.model_validate_json(auth_json)
     actor = auth_service.resolve(auth)
     actor = actor.model_copy(update={"agent_role": role_enum})
+    enrich_ctx(user_id=actor.actor_id, agent_role=role_enum.value)
     ctx = chat_service.ensure_conversation(actor, conversation_id=conversation_id)
+    enrich_ctx(conversation_id=ctx.conversation.id)
 
     return StreamingResponse(
         _make_stream(transcript, actor, ctx, transcript=transcript),

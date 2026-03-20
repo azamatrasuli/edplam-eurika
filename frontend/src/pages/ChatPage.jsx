@@ -130,7 +130,7 @@ export function ChatPage() {
   const onboarding = useOnboarding(auth, actorId, actorPhone)
   const chat = useChat(auth, agentRole, onboarding.isComplete)
   const convList = useConversationList(auth, agentRole, { onError: showErrorToast })
-  const tts = useTTS(auth)
+  const tts = useTTS(auth, { onError: showErrorToast })
 
   // Wire SSE callbacks → sidebar (stable refs, runs once)
   useEffect(() => {

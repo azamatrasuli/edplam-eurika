@@ -5,6 +5,7 @@ import logging
 from fastapi import APIRouter
 
 from app.auth.service import AuthService
+from app.logging_config import enrich_ctx
 from app.models.onboarding import (
     OnboardingVerifyRequest,
     OnboardingVerifyResponse,
@@ -25,6 +26,7 @@ onboarding_service = OnboardingService()
 def check_profile(req: ProfileCheckRequest) -> ProfileCheckResponse:
     """Check if the actor already has an onboarding profile."""
     actor = auth_service.resolve(req.auth)
+    enrich_ctx(user_id=actor.actor_id)
     profile = onboarding_service.check_profile(actor.actor_id)
     return ProfileCheckResponse(
         has_profile=profile is not None,
@@ -36,4 +38,5 @@ def check_profile(req: ProfileCheckRequest) -> ProfileCheckResponse:
 def verify_onboarding(req: OnboardingVerifyRequest) -> OnboardingVerifyResponse:
     """Verify user data against DMS and save the onboarding profile."""
     actor = auth_service.resolve(req.auth)
+    enrich_ctx(user_id=actor.actor_id)
     return onboarding_service.verify_and_save(actor, req)

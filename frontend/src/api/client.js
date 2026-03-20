@@ -59,6 +59,15 @@ function checkOnline() {
   }
 }
 
+async function safeFetch(url, options) {
+  try {
+    return await fetch(url, options)
+  } catch (e) {
+    if (e.name === 'AbortError') throw e
+    throw new ApiError('network_error', 'Нет подключения к серверу. Проверьте интернет')
+  }
+}
+
 // ---------------------------------------------------------------------------
 // API functions
 // ---------------------------------------------------------------------------
@@ -67,7 +76,7 @@ export async function startConversation(auth, conversationId = null, agentRole =
   const body = { auth, agent_role: agentRole }
   if (conversationId && !forceNew) body.conversation_id = conversationId
   if (forceNew) body.force_new = true
-  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/start`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/conversations/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -77,7 +86,7 @@ export async function startConversation(auth, conversationId = null, agentRole =
 }
 
 export async function fetchMessages(conversationId, auth) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/messages`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(auth),
@@ -140,7 +149,7 @@ async function readSSEStream(response, onEvent) {
 export async function streamChat({ auth, conversationId, message, agentRole = 'sales', onEvent, signal }) {
   checkOnline()
 
-  const response = await fetch(`${API_BASE_URL}/api/v1/chat/stream`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ auth, conversation_id: conversationId, message, agent_role: agentRole }),
@@ -158,7 +167,7 @@ export async function transcribeAudio(audioBlob, auth) {
   const formData = new FormData()
   formData.append('audio', audioBlob, 'voice.webm')
   if (auth) formData.append('auth_json', JSON.stringify(auth))
-  const response = await fetch(`${API_BASE_URL}/api/v1/chat/transcribe`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/chat/transcribe`, {
     method: 'POST',
     body: formData,
   })
@@ -167,7 +176,7 @@ export async function transcribeAudio(audioBlob, auth) {
 }
 
 export async function synthesizeSpeech(text, auth) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/chat/tts`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/chat/tts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ auth, text }),
@@ -177,7 +186,7 @@ export async function synthesizeSpeech(text, auth) {
 }
 
 export async function checkProfile(auth) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/profile/check`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/profile/check`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ auth }),
@@ -187,7 +196,7 @@ export async function checkProfile(auth) {
 }
 
 export async function verifyOnboarding(auth, data) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/onboarding/verify`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/onboarding/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ auth, ...data }),
@@ -207,7 +216,7 @@ export async function streamVoice({ auth, conversationId, audioBlob, agentRole =
   }
   formData.append('agent_role', agentRole)
 
-  const response = await fetch(`${API_BASE_URL}/api/v1/chat/voice`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/chat/voice`, {
     method: 'POST',
     body: formData,
     signal,
@@ -225,7 +234,7 @@ export async function streamVoice({ auth, conversationId, audioBlob, agentRole =
 export async function listConversations(auth, agentRole = null, { offset = 0, limit = 20, includeArchived = false } = {}) {
   const body = { auth, offset, limit, include_archived: includeArchived }
   if (agentRole) body.agent_role = agentRole
-  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/list`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/conversations/list`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -235,7 +244,7 @@ export async function listConversations(auth, agentRole = null, { offset = 0, li
 }
 
 export async function archiveConversation(conversationId, auth) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/archive`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/archive`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(auth),
@@ -245,7 +254,7 @@ export async function archiveConversation(conversationId, auth) {
 }
 
 export async function renameConversation(conversationId, title, auth) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/rename`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/rename`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ auth, title }),
@@ -255,7 +264,7 @@ export async function renameConversation(conversationId, title, auth) {
 }
 
 export async function deleteConversation(conversationId, auth) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/delete`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/delete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(auth),
@@ -265,7 +274,7 @@ export async function deleteConversation(conversationId, auth) {
 }
 
 export async function unarchiveConversation(conversationId, auth) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/unarchive`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}/unarchive`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(auth),
@@ -277,7 +286,7 @@ export async function unarchiveConversation(conversationId, auth) {
 export async function searchConversations(auth, query, agentRole = null) {
   const body = { auth, query }
   if (agentRole) body.agent_role = agentRole
-  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/search`, {
+  const response = await safeFetch(`${API_BASE_URL}/api/v1/conversations/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

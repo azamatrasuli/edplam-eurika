@@ -10,7 +10,7 @@ import { synthesizeSpeech } from '../api/client'
  *   playingId            — id of the message currently playing (or null)
  *   ttsState             — 'idle' | 'loading' | 'playing' | 'paused'
  */
-export function useTTS(auth) {
+export function useTTS(auth, { onError } = {}) {
   const [playingId, setPlayingId] = useState(null)
   const [ttsState, setTtsState] = useState('idle')
   const audioRef = useRef(null)
@@ -76,6 +76,7 @@ export function useTTS(auth) {
     } catch {
       setPlayingId(null)
       setTtsState('idle')
+      onError?.('Не удалось воспроизвести голос. Попробуйте ещё раз')
     }
   }, [auth, playingId, ttsState, stop])
 

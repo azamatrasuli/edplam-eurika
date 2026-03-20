@@ -42,7 +42,7 @@ export function useOnboarding(auth, actorId, actorPhone) {
                   setStep(STEPS.COMPLETE)
                   return
                 }
-                localStorage.removeItem(profileStorageKey(actorId))
+                try { localStorage.removeItem(profileStorageKey(actorId)) } catch { /* */ }
               }
             } catch {
               localStorage.removeItem(profileStorageKey(actorId))
@@ -55,10 +55,7 @@ export function useOnboarding(auth, actorId, actorPhone) {
         if (res.has_profile) {
           setProfileData(res.profile)
           if (actorId) {
-            localStorage.setItem(
-              profileStorageKey(actorId),
-              JSON.stringify({ profile_id: res.profile.id }),
-            )
+            try { localStorage.setItem(profileStorageKey(actorId), JSON.stringify({ profile_id: res.profile.id })) } catch { /* quota */ }
           }
           setStep(STEPS.COMPLETE)
           return
@@ -75,10 +72,7 @@ export function useOnboarding(auth, actorId, actorPhone) {
             })
             setProfileData(verifyRes)
             if (actorId && verifyRes) {
-              localStorage.setItem(
-                profileStorageKey(actorId),
-                JSON.stringify({ profile_id: verifyRes.profile_id || '' }),
-              )
+              try { localStorage.setItem(profileStorageKey(actorId), JSON.stringify({ profile_id: verifyRes.profile_id || '' })) } catch { /* quota */ }
             }
           } catch {
             // Auto-verify failed — continue without profile, LLM will handle

@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.auth.service import AuthService
 from app.db.repository import ConversationRepository
+from app.logging_config import enrich_ctx
 from app.models.chat import (
     AuthPayload,
     ConversationListItem,
@@ -25,6 +26,7 @@ repo = ConversationRepository()
 @router.post("/list", response_model=ConversationListResponse)
 def list_conversations(req: ConversationListRequest) -> ConversationListResponse:
     actor = auth_service.resolve(req.auth)
+    enrich_ctx(user_id=actor.actor_id)
     agent_role = req.agent_role.value if req.agent_role else None
     convs, total = repo.list_conversations(
         actor_id=actor.actor_id,
@@ -57,6 +59,7 @@ def list_conversations(req: ConversationListRequest) -> ConversationListResponse
 @router.post("/search", response_model=ConversationListResponse)
 def search_conversations(req: ConversationSearchRequest) -> ConversationListResponse:
     actor = auth_service.resolve(req.auth)
+    enrich_ctx(user_id=actor.actor_id)
     agent_role = req.agent_role.value if req.agent_role else None
     convs = repo.search_conversations(
         actor_id=actor.actor_id,
@@ -83,6 +86,7 @@ def search_conversations(req: ConversationSearchRequest) -> ConversationListResp
 @router.post("/{conversation_id}/archive")
 def archive_conversation(conversation_id: str, auth: AuthPayload):
     actor = auth_service.resolve(auth)
+    enrich_ctx(user_id=actor.actor_id, conversation_id=conversation_id)
     ok = repo.archive_conversation(conversation_id, actor.actor_id)
     if not ok:
         raise HTTPException(404, "Conversation not found or already archived")
@@ -92,6 +96,7 @@ def archive_conversation(conversation_id: str, auth: AuthPayload):
 @router.post("/{conversation_id}/unarchive")
 def unarchive_conversation(conversation_id: str, auth: AuthPayload):
     actor = auth_service.resolve(auth)
+    enrich_ctx(user_id=actor.actor_id, conversation_id=conversation_id)
     ok = repo.unarchive_conversation(conversation_id, actor.actor_id)
     if not ok:
         raise HTTPException(404, "Conversation not found or not archived")
@@ -101,6 +106,7 @@ def unarchive_conversation(conversation_id: str, auth: AuthPayload):
 @router.post("/{conversation_id}/rename")
 def rename_conversation(conversation_id: str, req: ConversationRenameRequest):
     actor = auth_service.resolve(req.auth)
+    enrich_ctx(user_id=actor.actor_id, conversation_id=conversation_id)
     owner = repo.get_conversation_owner(conversation_id)
     if not owner or owner != actor.actor_id:
         raise HTTPException(403, "Access denied")
@@ -111,6 +117,7 @@ def rename_conversation(conversation_id: str, req: ConversationRenameRequest):
 @router.post("/{conversation_id}/delete")
 def delete_conversation(conversation_id: str, auth: AuthPayload):
     actor = auth_service.resolve(auth)
+    enrich_ctx(user_id=actor.actor_id, conversation_id=conversation_id)
     ok = repo.delete_conversation(conversation_id, actor.actor_id)
     if not ok:
         raise HTTPException(404, "Conversation not found")

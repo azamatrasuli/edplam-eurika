@@ -43,7 +43,7 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
       setConversationId(data.conversation_id)
       conversationIdRef.current = data.conversation_id
       const storageKey = getStorageKey(agentRole)
-      sessionStorage.setItem(storageKey, data.conversation_id)
+      try { sessionStorage.setItem(storageKey, data.conversation_id) } catch { /* quota */ }
 
       // Try to restore message history for existing conversations
       if (convId && data.conversation_id === convId && !forceNew) {
@@ -80,7 +80,15 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
       setLoading(false)
       return data
     } catch (e) {
-      setError(e.message)
+      let errMsg
+      if (e instanceof TypeError && e.message.includes('fetch')) {
+        errMsg = 'Нет подключения к серверу. Проверьте интернет и попробуйте снова.'
+      } else if (e.code === 'auth_expired' || e.code === 'auth_invalid') {
+        errMsg = 'Сессия истекла. Обновите страницу.'
+      } else {
+        errMsg = e.message || 'Не удалось загрузить чат. Попробуйте обновить страницу.'
+      }
+      setError(errMsg)
       setLoading(false)
       return null
     }
@@ -153,7 +161,7 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
           if (event === 'meta' && payload.conversation_id && payload.conversation_id !== conversationIdRef.current) {
             setConversationId(payload.conversation_id)
             conversationIdRef.current = payload.conversation_id
-            sessionStorage.setItem(storageKey, payload.conversation_id)
+            try { sessionStorage.setItem(storageKey, payload.conversation_id) } catch { /* quota */ }
           }
 
           if (event === 'tool_call') {
@@ -222,12 +230,18 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
       let errMsg
       if (e.message === 'SSE_TIMEOUT') {
         errMsg = 'Сервер не ответил вовремя. Попробуйте ещё раз.'
-      } else if (e.code === 'offline') {
+      } else if (e.code === 'offline' || (e instanceof TypeError && e.message.includes('fetch'))) {
         errMsg = 'Нет подключения к интернету. Проверьте соединение и попробуйте снова.'
       } else if (e.code === 'rate_limit') {
         errMsg = 'Слишком много сообщений. Подождите минуту.'
       } else if (e.code === 'auth_expired' || e.code === 'auth_invalid') {
         errMsg = 'Сессия истекла. Обновите страницу.'
+      } else if (e.code === 'message_too_long') {
+        errMsg = 'Сообщение слишком длинное (максимум 4000 символов).'
+      } else if (e.code === 'stt_unavailable') {
+        errMsg = 'Распознавание речи временно недоступно. Напишите текстом.'
+      } else if (e.code === 'internal_error') {
+        errMsg = 'Ошибка сервера. Попробуйте через пару минут.'
       } else {
         errMsg = e.message || 'Что-то пошло не так. Попробуйте ещё раз.'
       }

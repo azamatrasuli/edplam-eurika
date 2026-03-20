@@ -10,7 +10,7 @@ function getDashboardKey() {
 
 async function dashboardFetch(endpoint, params = {}) {
   const key = getDashboardKey()
-  if (!key) throw new Error('Dashboard API key not provided')
+  if (!key) throw new Error('API-ключ не указан. Добавьте ?key=... в URL')
 
   // Store key in session for page navigation
   sessionStorage.setItem('dashboard_key', key)
@@ -20,13 +20,18 @@ async function dashboardFetch(endpoint, params = {}) {
     if (v != null && v !== '') url.searchParams.set(k, v)
   })
 
-  const response = await fetch(url.toString(), {
+  let response
+  try {
+    response = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${key}` },
-  })
+    })
+  } catch {
+    throw new Error('Нет подключения к серверу. Проверьте интернет')
+  }
 
   if (!response.ok) {
-    if (response.status === 401) throw new Error('Invalid API key')
-    throw new Error(`Dashboard request failed (${response.status})`)
+    if (response.status === 401) throw new Error('Неверный API-ключ')
+    throw new Error('Ошибка загрузки данных. Попробуйте обновить страницу')
   }
 
   return response.json()
