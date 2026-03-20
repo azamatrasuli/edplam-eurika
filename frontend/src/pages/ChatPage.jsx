@@ -170,15 +170,20 @@ export function ChatPage() {
     try {
       const data = await chat.startNewChat()
       if (data) {
-        convList.addConversation({
-          id: data.conversation_id,
-          title: null,
-          agent_role: agentRole,
-          message_count: 0,
-          last_user_message: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        // Only add to sidebar if not already there (backend may reuse empty chat)
+        const exists = convList.conversations.some((c) => c.id === data.conversation_id)
+        if (!exists) {
+          convList.addConversation({
+            id: data.conversation_id,
+            title: null,
+            agent_role: agentRole,
+            message_count: 0,
+            last_user_message: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+        }
+        convList.setActiveId(data.conversation_id)
         setSidebarOpen(false)
       }
     } finally {
