@@ -7,6 +7,7 @@ from collections.abc import Generator
 from dataclasses import dataclass, field
 from typing import Any
 
+import tiktoken
 from openai import OpenAI, RateLimitError
 
 from app.agent.prompt import get_system_prompt
@@ -14,6 +15,19 @@ from app.config import get_settings
 from app.models.chat import ActorContext, ChatMessage
 
 logger = logging.getLogger("llm")
+
+_tiktoken_encoding: tiktoken.Encoding | None = None
+
+
+def _get_encoding() -> tiktoken.Encoding:
+    global _tiktoken_encoding
+    if _tiktoken_encoding is None:
+        _tiktoken_encoding = tiktoken.encoding_for_model("gpt-4o")
+    return _tiktoken_encoding
+
+
+def _count_tokens(text: str) -> int:
+    return len(_get_encoding().encode(text))
 
 
 @dataclass
@@ -42,6 +56,52 @@ class LLMService:
     def __init__(self) -> None:
         self.settings = get_settings()
         self.client = OpenAI(api_key=self.settings.openai_api_key) if self.settings.openai_api_key else None
+
+    # ---- history builder --------------------------------------------------
+
+    def _build_history_messages(
+        self,
+        history: list[ChatMessage],
+        system_tokens: int,
+    ) -> list[dict[str, str]]:
+        """Build history messages within a token budget.
+
+        Walks backward through history, accumulating messages until the token
+        budget is exhausted. Returns messages in chronological order.
+        """
+        budget = getattr(self.settings, "history_max_context_tokens", 100_000)
+        available = budget - system_tokens
+        if available < 500:
+            available = 4000  # safety floor
+
+        result: list[dict[str, str]] = []
+        used = 0
+        min_messages = 6  # always include at least this many
+
+        for i, msg in enumerate(reversed(history)):
+            content = msg.content or ""
+            # Enrich assistant messages with tool call summaries from metadata
+            if msg.role == "assistant" and getattr(msg, "metadata", None):
+                tool_calls = (msg.metadata or {}).get("tool_calls")
+                if tool_calls and isinstance(tool_calls, list):
+                    tool_lines = []
+                    for tc in tool_calls:
+                        name = tc.get("name", "")
+                        res = tc.get("result", "")
+                        if name and res:
+                            tool_lines.append(f"{name}: {res[:200]}")
+                    if tool_lines:
+                        content = content + "\n[Инструменты: " + "; ".join(tool_lines) + "]"
+
+            tokens = _count_tokens(content) + 4  # 4 tokens overhead per message
+            if i >= min_messages and used + tokens > available:
+                break
+            result.append({"role": msg.role, "content": content})
+            used += tokens
+
+        result.reverse()
+        logger.info("History: %d/%d messages, ~%d tokens", len(result), len(history), used)
+        return result
 
     # ---- context builders -------------------------------------------------
 
@@ -109,6 +169,7 @@ class LLMService:
         tool_executor: Any | None = None,
         profile_context: str | None = None,
         memory_context: str | None = None,
+        running_summary: str | None = None,
     ) -> Generator[LLMChunk | ToolCallEvent, None, LLMResult]:
         """
         Stream LLM answer with function calling support.
@@ -131,7 +192,7 @@ class LLMService:
 
         tool_defs = get_tool_definitions(agent_role)
 
-        # Build initial messages
+        # Build system messages
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": get_system_prompt(agent_role)},
             {"role": "system", "content": self._identity_context(actor)},
@@ -140,12 +201,17 @@ class LLMService:
             messages.append({"role": "system", "content": profile_context})
         if memory_context:
             messages.append({"role": "system", "content": memory_context})
+        if running_summary:
+            messages.append({"role": "system", "content": f"# Краткое содержание начала этого диалога\n\n{running_summary}"})
         crm_ctx_str = self._crm_context(crm_context)
         if crm_ctx_str:
             messages.append({"role": "system", "content": crm_ctx_str})
 
-        for item in history[-12:]:
-            messages.append({"role": item.role, "content": item.content})
+        # Count system tokens, then fill history within budget
+        system_tokens = sum(_count_tokens(m["content"]) + 4 for m in messages)
+        system_tokens += _count_tokens(user_text) + 4  # reserve for current message
+        history_msgs = self._build_history_messages(history, system_tokens)
+        messages.extend(history_msgs)
         messages.append({"role": "user", "content": user_text})
 
         all_tool_calls_made: list[dict] = []
@@ -249,7 +315,7 @@ class LLMService:
                         all_tool_calls_made.append({
                             "name": tc["name"],
                             "args": args,
-                            "result": result.result[:500],
+                            "result": result.result[:2000],
                         })
 
                         yield ToolCallEvent(

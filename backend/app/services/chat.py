@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
+
+from openai import OpenAI
 
 from app.agent.prompt import PROMPT_VERSION
 from app.config import get_settings
@@ -36,14 +39,14 @@ class ChatService:
         conv = self.repo.start_or_resume_conversation(actor, conversation_id, force_new=force_new)
         history = self.repo.get_messages(conv.id, limit=50)
 
-        # On new conversation start, trigger background summarization of past idle conversations
+        # On new conversation start, trigger background summarization of past conversations
         if force_new or not history:
-            self._trigger_user_summarization(actor.actor_id)
+            self._trigger_user_summarization(actor.actor_id, exclude_conversation_id=conv.id)
 
         return StreamContext(conversation=conv, actor=actor, history=history)
 
-    def _trigger_user_summarization(self, actor_id: str) -> None:
-        """Summarize past idle conversations for this user in background thread."""
+    def _trigger_user_summarization(self, actor_id: str, exclude_conversation_id: str | None = None) -> None:
+        """Summarize past conversations for this user in background thread."""
         import threading
 
         def _run():
@@ -52,7 +55,10 @@ class ChatService:
                 from app.services.summarizer import summarize_conversation
 
                 mem_repo = MemoryRepository()
-                user_convs = mem_repo.get_user_unsummarized(actor_id, idle_minutes=2, min_messages=3)
+                user_convs = mem_repo.get_user_unsummarized(
+                    actor_id, idle_minutes=0, min_messages=3,
+                    exclude_conversation_id=exclude_conversation_id,
+                )
                 if not user_convs:
                     return
                 logger.info("Triggered memory backfill for %s: %d conversations", actor_id, len(user_convs))
@@ -234,6 +240,81 @@ class ChatService:
             metadata=meta,
         )
 
+    # ---- running summary for long conversations ----------------------------
+
+    _RUNNING_SUMMARY_PROMPT = (
+        "Ты — суммаризатор диалога. Кратко (3-5 предложений) опиши содержание "
+        "этой части диалога между AI-агентом и клиентом. Сохрани ключевые факты: "
+        "имя клиента, класс ребёнка, выбранный продукт, договорённости, "
+        "нерешённые вопросы. Пиши на русском."
+    )
+
+    def _get_running_summary(
+        self,
+        conversation_id: str,
+        history: list[ChatMessage],
+    ) -> str | None:
+        """Generate or retrieve a running summary for long conversations."""
+        settings = get_settings()
+        threshold = settings.conversation_summary_threshold
+        keep_recent = settings.conversation_summary_keep_recent
+
+        if len(history) <= threshold:
+            return None
+
+        # Check cached summary in conversation metadata
+        conv_meta = self.repo.get_conversation_metadata(conversation_id) or {}
+        cached_summary = conv_meta.get("running_summary")
+        cached_up_to = conv_meta.get("running_summary_up_to", 0)
+
+        # Regenerate if no cache or if 10+ new messages since last summary
+        messages_to_summarize = len(history) - keep_recent
+        if cached_summary and messages_to_summarize - cached_up_to < 10:
+            return cached_summary
+
+        # Build text from older messages
+        older = history[:messages_to_summarize]
+        lines = []
+        for m in older:
+            role_label = "Клиент" if m.role == "user" else "Агент"
+            lines.append(f"{role_label}: {m.content[:300]}")
+        dialog_text = "\n".join(lines)
+
+        # If there's already a cached summary, include it for continuity
+        if cached_summary:
+            dialog_text = f"Предыдущее краткое содержание:\n{cached_summary}\n\nНовые сообщения:\n{dialog_text}"
+
+        try:
+            client = OpenAI(api_key=settings.openai_api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": self._RUNNING_SUMMARY_PROMPT},
+                    {"role": "user", "content": dialog_text[:8000]},
+                ],
+                temperature=0,
+                max_tokens=500,
+                timeout=15,
+            )
+            summary = response.choices[0].message.content.strip()
+        except Exception:
+            logger.warning("Running summary generation failed for conv=%s", conversation_id, exc_info=True)
+            return cached_summary  # return stale cache if available
+
+        # Save to conversation metadata
+        try:
+            new_meta = dict(conv_meta)
+            new_meta["running_summary"] = summary
+            new_meta["running_summary_up_to"] = messages_to_summarize
+            self.repo.update_conversation_metadata(conversation_id, new_meta)
+        except Exception:
+            logger.warning("Failed to save running summary metadata", exc_info=True)
+
+        logger.info("Generated running summary for conv=%s (%d→%d msgs)", conversation_id, cached_up_to, messages_to_summarize)
+        return summary
+
+    # ---- stream answer orchestration ----------------------------------------
+
     def stream_answer(
         self,
         user_text: str,
@@ -279,6 +360,14 @@ class ChatService:
         except Exception:
             logger.warning("Memory retrieval failed for %s", actor.actor_id, exc_info=True)
 
+        # Generate running summary for long conversations
+        running_summary = None
+        if conversation_id:
+            try:
+                running_summary = self._get_running_summary(conversation_id, history)
+            except Exception:
+                logger.warning("Running summary failed for %s", conversation_id, exc_info=True)
+
         return self.llm.stream_answer(
             user_text=user_text,
             actor=actor,
@@ -287,6 +376,7 @@ class ChatService:
             tool_executor=tool_executor,
             profile_context=profile_context or None,
             memory_context=memory_context,
+            running_summary=running_summary,
         )
 
     def get_messages(self, conversation_id: str) -> list[ChatMessage]:

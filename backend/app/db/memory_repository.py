@@ -122,12 +122,9 @@ class MemoryRepository:
                 if conn is None:
                     return []
                 with conn.cursor() as cur:
+                    # No agent_role filter — summaries are useful across all roles
                     where = "WHERE actor_id = %s AND summary_type = 'conversation'"
                     params: list = [actor_id]
-
-                    if agent_role:
-                        where += " AND agent_role = %s"
-                        params.append(agent_role)
 
                     where += " AND 1 - (embedding <=> %s::vector) > %s"
                     params.extend([emb_str, threshold])
@@ -344,7 +341,10 @@ class MemoryRepository:
             logger.warning("Failed to get idle unsummarized conversations", exc_info=True)
             return []
 
-    def get_user_unsummarized(self, actor_id: str, idle_minutes: int = 2, min_messages: int = 3) -> list[dict]:
+    def get_user_unsummarized(
+        self, actor_id: str, idle_minutes: int = 2, min_messages: int = 3,
+        exclude_conversation_id: str | None = None,
+    ) -> list[dict]:
         """Get unsummarized conversations for a specific user."""
         if not self._has_db():
             return []
@@ -353,12 +353,10 @@ class MemoryRepository:
                 if conn is None:
                     return []
                 with conn.cursor() as cur:
-                    cur.execute(
-                        """
+                    query = """
                         SELECT c.id, c.actor_id, c.agent_role, c.message_count
                         FROM conversations c
                         WHERE c.actor_id = %s
-                          AND c.updated_at < NOW() - (%s * INTERVAL '1 minute')
                           AND c.status IN ('active', 'escalated')
                           AND c.message_count >= %s
                           AND c.archived_at IS NULL
@@ -366,11 +364,20 @@ class MemoryRepository:
                             SELECT 1 FROM agent_conversation_summaries s
                             WHERE s.conversation_id = c.id
                           )
-                        ORDER BY c.updated_at DESC
-                        LIMIT 5
-                        """,
-                        (actor_id, idle_minutes, min_messages),
-                    )
+                    """
+                    params: list = [actor_id, min_messages]
+
+                    if idle_minutes > 0:
+                        query += " AND c.updated_at < NOW() - (%s * INTERVAL '1 minute')"
+                        params.append(idle_minutes)
+
+                    if exclude_conversation_id:
+                        query += " AND c.id != %s"
+                        params.append(exclude_conversation_id)
+
+                    query += " ORDER BY c.updated_at DESC LIMIT 5"
+
+                    cur.execute(query, params)
                     rows = cur.fetchall()
                     return [dict(r) for r in rows] if rows else []
         except (psycopg.Error, OSError):

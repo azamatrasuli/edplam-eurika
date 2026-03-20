@@ -73,7 +73,12 @@ class Settings(BaseSettings):
     memory_summary_threshold: float = Field(default=0.4, alias="MEMORY_SUMMARY_THRESHOLD")
     memory_atom_threshold: float = Field(default=0.35, alias="MEMORY_ATOM_THRESHOLD")
     memory_recency_halflife_days: int = Field(default=30, alias="MEMORY_RECENCY_HALFLIFE_DAYS")
-    memory_cross_role_types: str = Field(default="preference,entity", alias="MEMORY_CROSS_ROLE_TYPES")
+    memory_cross_role_types: str = Field(default="preference,entity,decision", alias="MEMORY_CROSS_ROLE_TYPES")
+
+    # --- History & Running Summary ---
+    history_max_context_tokens: int = Field(default=100_000, alias="HISTORY_MAX_CONTEXT_TOKENS")
+    conversation_summary_threshold: int = Field(default=30, alias="CONVERSATION_SUMMARY_THRESHOLD")
+    conversation_summary_keep_recent: int = Field(default=20, alias="CONVERSATION_SUMMARY_KEEP_RECENT")
 
     @property
     def cors_origins(self) -> list[str]:

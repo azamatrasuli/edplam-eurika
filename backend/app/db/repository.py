@@ -102,7 +102,7 @@ class ConversationRepository:
                     with conn.cursor() as cur:
                         cur.execute(
                             """
-                            select role, content, created_at
+                            select role, content, created_at, metadata
                             from chat_messages
                             where conversation_id = %s
                             order by created_at asc

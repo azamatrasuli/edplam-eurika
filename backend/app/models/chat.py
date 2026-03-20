@@ -75,6 +75,7 @@ class ChatMessage(BaseModel):
     role: str
     content: str
     created_at: datetime
+    metadata: dict[str, Any] | None = None
 
 
 class ConversationMessagesResponse(BaseModel):
