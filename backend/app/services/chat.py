@@ -105,49 +105,46 @@ class ChatService:
         # --- Build greeting by channel × role ---
         if is_support:
             if name and child_snippet:
-                greeting = f"{hi}, {name}!{child_snippet} Чем могу помочь?"
+                greeting = f"{hi}, {name}! 😊{child_snippet} Расскажите, с чем помочь?"
             elif name:
                 greeting = (
-                    f"{hi}, {name}! Я Эврика — помогу с вопросами "
-                    "по платформе, документам и оплате. Что случилось?"
+                    f"{hi}, {name}! Я Эврика из EdPalm 😊 "
+                    "Помогу разобраться с платформой, документами или оплатой. Что случилось?"
                 )
             else:
                 greeting = (
-                    f"{hi}! Я Эврика — помогу с вопросами "
-                    "по платформе, документам и оплате. Чем могу помочь?"
+                    f"{hi}! Я Эврика из EdPalm 😊 "
+                    "Помогу с любыми вопросами по обучению. Расскажите, что произошло?"
                 )
         elif actor.channel == Channel.telegram:
             if name:
                 greeting = (
-                    f"Привет, {name}! Я Эврика из EdPalm — "
-                    "помогу разобраться в программах обучения. "
-                    "О чём хотите узнать?"
+                    f"Привет, {name}! 😊 Я Эврика из EdPalm. "
+                    "Рада, что написали! Чем могу помочь?"
                 )
             else:
                 greeting = (
-                    "Привет! Я Эврика из EdPalm — "
-                    "помогу разобраться в программах обучения. "
-                    "О чём хотите узнать?"
+                    "Привет! 😊 Я Эврика из EdPalm. "
+                    "Рада, что написали! Как вас зовут?"
                 )
         elif actor.channel == Channel.external:
             greeting = (
-                f"{hi}! Я Эврика из EdPalm. "
-                "Помогу подобрать программу и отвечу на вопросы. "
-                "Что вас интересует?"
+                f"{hi}! Я Эврика из EdPalm 😊 "
+                "Рада, что заглянули! Как вас зовут?"
             )
         else:
             # Portal
             if name and child_snippet:
-                greeting = f"{hi}, {name}!{child_snippet} Чем могу помочь?"
+                greeting = f"{hi}, {name}! 😊{child_snippet} Расскажите, чем помочь?"
             elif name:
                 greeting = (
-                    f"{hi}, {name}! Я Эврика — помогу подобрать "
-                    "программу обучения. Что вас интересует?"
+                    f"{hi}, {name}! Я Эврика из EdPalm 😊 "
+                    "Рада видеть вас! Чем могу помочь?"
                 )
             else:
                 greeting = (
                     f"{hi}! Я Эврика — помогу подобрать "
-                    "программу обучения. Что вас интересует?"
+                    "Рада видеть! Как вас зовут? 😊"
                 )
 
         self.save_assistant_message(conversation_id, greeting, usage_tokens=None)
