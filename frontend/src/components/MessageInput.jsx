@@ -60,7 +60,7 @@ export function MessageInput({ disabled, onSend, auth, onTypingStart }) {
   // Transcribing state
   if (voiceMode === 'transcribing') {
     return (
-      <div className="flex items-center justify-center gap-1 bg-input-surface border-[1.5px] border-input-border rounded-3xl px-4 py-3 h-[52px]">
+      <div className="flex items-center justify-center gap-1 bg-elevated border border-input-border rounded-2xl px-4 py-3 h-[52px]">
         <span className="text-sm text-fg-muted">Распознаю голос</span>
         <span className="flex gap-1 ml-1">
           <span className="w-1.5 h-1.5 rounded-full bg-brand animate-[transcribe-pulse_1.2s_infinite_ease-in-out]" style={{ animationDelay: '0s' }} />
@@ -98,10 +98,10 @@ export function MessageInput({ disabled, onSend, auth, onTypingStart }) {
           {text.length} / {MESSAGE_MAX_LENGTH}
         </div>
       )}
-      <div className={`input-ring flex items-end gap-2 bg-input-surface border-[1.5px] rounded-3xl pl-4 pr-1.5 py-1.5 transition-[border-color,box-shadow] duration-200 ease-in-out ${overLimit ? 'border-error-border' : 'border-input-border'}`}>
+      <div className={`input-ring flex items-end gap-2 bg-elevated border rounded-2xl pl-4 pr-1.5 py-1.5 ${overLimit ? 'border-error-border' : 'border-input-border'}`}>
         <textarea
           ref={textareaRef}
-          className="flex-1 border-none py-2 resize-none text-[15px] bg-transparent text-fg leading-[1.4] min-h-6 max-h-30 outline-none placeholder:text-fg-muted placeholder:opacity-60"
+          className="flex-1 border-none py-2 resize-none text-[15px] bg-transparent text-fg leading-[1.4] min-h-6 max-h-30 outline-none placeholder:text-fg-muted placeholder:opacity-50"
           value={text}
           onChange={(e) => {
             const val = e.target.value
@@ -119,16 +119,21 @@ export function MessageInput({ disabled, onSend, auth, onTypingStart }) {
         />
         <div className="flex gap-1 shrink-0 items-end">
           <button
-            className="w-9 h-9 p-0 text-[17px] flex items-center justify-center rounded-full border-none cursor-pointer shrink-0 transition-[background,color,transform] duration-150 ease-in-out disabled:opacity-30 disabled:cursor-default bg-voice text-fg-muted hover:bg-voice-hover hover:text-fg"
+            className="w-9 h-9 p-0 flex items-center justify-center rounded-full border-none cursor-pointer shrink-0 transition-[background,color,transform] duration-150 ease-in-out disabled:opacity-30 disabled:cursor-default bg-inset text-fg-muted hover:bg-voice-hover hover:text-fg"
             onClick={startRecording}
             disabled={disabled}
             title="Голосовое сообщение"
             type="button"
           >
-            🎤
+            <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="1" width="6" height="12" rx="3" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="8" y1="23" x2="16" y2="23" />
+            </svg>
           </button>
           <button
-            className="w-9 h-9 p-0 flex items-center justify-center border-none rounded-full bg-brand text-white cursor-pointer shrink-0 transition-[background,transform,opacity] duration-150 ease-in-out hover:bg-brand-hover hover:scale-105 active:scale-95 disabled:opacity-30 disabled:cursor-default"
+            className="w-9 h-9 p-0 flex items-center justify-center border-none rounded-full bg-brand text-white cursor-pointer shrink-0 shadow-sm transition-[background,transform,opacity] duration-150 ease-in-out hover:bg-brand-hover hover:scale-[1.03] active:scale-95 disabled:opacity-30 disabled:cursor-default"
             onClick={submit}
             disabled={disabled || !text.trim() || overLimit}
             title="Отправить"

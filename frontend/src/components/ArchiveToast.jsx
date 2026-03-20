@@ -56,9 +56,9 @@ export function ArchiveToast({ visible, title, onUndo, onDismiss }) {
         exiting ? 'toast-exit' : 'toast-enter'
       }`}
     >
-      <div className="relative overflow-hidden rounded-xl bg-[#1a1d26] dark:bg-[#2a2d3a] shadow-xl border border-white/[0.08]">
+      <div className="relative overflow-hidden rounded-2xl bg-[#1f1f23] shadow-lg backdrop-blur-md border border-white/[0.08]">
         {/* Progress bar */}
-        <div className="absolute top-0 left-0 h-[3px] bg-brand/80 transition-none"
+        <div className="absolute top-0 left-0 h-[2px] bg-brand/80 transition-none"
           style={{ width: `${progress}%` }}
         />
 

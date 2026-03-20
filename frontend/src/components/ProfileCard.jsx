@@ -5,7 +5,7 @@ export function ProfileCard({ data }) {
   const fullName = [data.surname, data.name, data.patronymic].filter(Boolean).join(' ')
 
   return (
-    <div className="mt-2 rounded-xl border border-brand/20 bg-brand/5 p-3.5 max-w-[320px]">
+    <div className="mt-2 rounded-2xl border border-brand/15 bg-gradient-to-br from-elevated to-brand/5 p-3.5 max-w-[320px]">
       {fullName && (
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[13px] text-fg-muted">Контакт:</span>

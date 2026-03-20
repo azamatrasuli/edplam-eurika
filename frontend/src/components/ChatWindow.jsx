@@ -26,7 +26,7 @@ function TTSButton({ messageId, ttsPlayingId, ttsState, onPlay }) {
       className={`w-7 h-7 flex items-center justify-center rounded-full border-none cursor-pointer shrink-0 transition-all duration-200 ${
         isThis
           ? 'bg-brand/10 text-brand opacity-100'
-          : 'bg-transparent text-fg-muted opacity-40 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 hover:text-fg hover:bg-black/[0.06] dark:hover:bg-white/[0.08]'
+          : 'bg-transparent text-fg-muted opacity-40 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 hover:text-fg hover:bg-inset'
       }`}
       title={isPlaying ? 'Пауза' : isPaused ? 'Продолжить' : 'Озвучить'}
       type="button"
@@ -63,14 +63,14 @@ export function ChatWindow({ messages, avatarProps, typing, toolStatus, loading,
 
   return (
     <div
-      className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col gap-1 px-3 py-4 sm:px-5 scroll-smooth"
+      className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col gap-1.5 px-3 py-4 sm:px-5 scroll-smooth"
       ref={containerRef}
       onScroll={handleScroll}
     >
       {loading ? (
         <LoadingSpinner />
       ) : (
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         {visibleMessages.map((message) => {
           const isSpecial = message.type && message.type !== 'text'
           const isPayment = message.type === 'payment'
@@ -81,7 +81,7 @@ export function ChatWindow({ messages, avatarProps, typing, toolStatus, loading,
           return (
             <div
               key={message.id}
-              className={`group flex items-end gap-2 mt-1 ${
+              className={`group flex items-end gap-2 mt-0.5 ${
                 shouldAnimate ? 'opacity-0 animate-[message-in_0.3s_ease_forwards]' : ''
               } ${
                 isPayment ? 'payment-enter' : ''
@@ -91,16 +91,16 @@ export function ChatWindow({ messages, avatarProps, typing, toolStatus, loading,
             >
               {message.role === 'assistant' && avatarProps && (
                 <img
-                  className="w-7 h-7 rounded-full object-cover shrink-0 self-end bg-surface-alt"
+                  className="w-7 h-7 rounded-full object-cover shrink-0 self-end bg-surface-alt ring-1 ring-border-subtle"
                   alt=""
                   {...avatarProps}
                 />
               )}
               <div
-                className={`max-w-[85%] sm:max-w-[75%] px-3.5 py-2.5 text-[15px] leading-normal shadow-card break-words ${
+                className={`max-w-[82%] sm:max-w-[70%] px-4 py-3 text-[15px] leading-normal shadow-xs break-words ${
                   message.role === 'user'
-                    ? 'bg-card-user text-on-card-user whitespace-pre-wrap rounded-2xl rounded-br-[2px]'
-                    : 'bg-card rounded-2xl rounded-tl-[2px] prose-chat'
+                    ? 'bg-gradient-to-br from-brand to-brand-hover text-on-card-user whitespace-pre-wrap rounded-[20px] rounded-br-[6px]'
+                    : 'bg-card rounded-[20px] rounded-tl-[6px] prose-chat'
                 }`}
               >
                 {isSpecial ? (
@@ -137,25 +137,25 @@ export function ChatWindow({ messages, avatarProps, typing, toolStatus, loading,
       )}
 
       {typing && (
-        <div className="flex items-end gap-2 mt-1 opacity-0 animate-[message-in_0.3s_ease_forwards] justify-start">
+        <div className="flex items-end gap-2 mt-0.5 opacity-0 animate-[message-in_0.3s_ease_forwards] justify-start">
           {avatarProps && (
             <img
-              className="w-7 h-7 rounded-full object-cover shrink-0 self-end bg-surface-alt"
+              className="w-7 h-7 rounded-full object-cover shrink-0 self-end bg-surface-alt ring-1 ring-border-subtle"
               alt=""
               {...avatarProps}
             />
           )}
-          <div className="bg-card px-4 py-3 rounded-2xl rounded-tl-[2px] shadow-card">
+          <div className="bg-card px-4 py-3 rounded-[20px] rounded-tl-[6px] shadow-xs">
             {toolStatus ? (
-              <div className="flex items-center gap-2 text-secondary text-sm">
+              <div className="flex items-center gap-2 text-fg-muted text-sm animate-[fade-in_0.2s_ease]">
                 <span className="w-2 h-2 rounded-full bg-brand animate-[status-pulse_1.5s_infinite]" />
                 {toolStatus}
               </div>
             ) : (
               <div className="flex items-center gap-[5px]">
-                <span className="w-[7px] h-[7px] rounded-full bg-dot animate-[typing-bounce_1.2s_infinite_ease-in-out]" />
-                <span className="w-[7px] h-[7px] rounded-full bg-dot animate-[typing-bounce_1.2s_infinite_ease-in-out] [animation-delay:0.15s]" />
-                <span className="w-[7px] h-[7px] rounded-full bg-dot animate-[typing-bounce_1.2s_infinite_ease-in-out] [animation-delay:0.3s]" />
+                <span className="w-2 h-2 rounded-full bg-brand/60 animate-[typing-bounce_1.2s_infinite_ease-in-out]" />
+                <span className="w-2 h-2 rounded-full bg-brand/60 animate-[typing-bounce_1.2s_infinite_ease-in-out] [animation-delay:0.15s]" />
+                <span className="w-2 h-2 rounded-full bg-brand/60 animate-[typing-bounce_1.2s_infinite_ease-in-out] [animation-delay:0.3s]" />
               </div>
             )}
           </div>

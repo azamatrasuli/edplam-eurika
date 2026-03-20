@@ -11,8 +11,8 @@ export function OnboardingButtons({ buttons, disabled, onSelect }) {
             transition-all duration-200 ease-out
             ${
               disabled
-                ? 'bg-surface-alt text-fg-muted cursor-default opacity-60'
-                : 'bg-brand text-white cursor-pointer hover:brightness-110 active:scale-[0.97] shadow-sm hover:shadow-md'
+                ? 'bg-inset text-fg-tertiary cursor-default opacity-60'
+                : 'bg-brand text-white cursor-pointer hover:bg-brand-hover active:scale-[0.97] shadow-sm hover:shadow-md'
             }
           `}
         >

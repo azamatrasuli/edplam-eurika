@@ -12,7 +12,7 @@ export function FilterBar({ dateFrom, dateTo, channel, onDateFrom, onDateTo, onC
           <button
             key={p.days}
             onClick={() => onPreset(p.days)}
-            className="px-3 py-1.5 text-[13px] rounded-lg border border-[var(--border-subtle,#e5e7eb)] bg-[var(--bg-primary,#fff)] text-[var(--text-primary,#111)] hover:bg-[var(--bg-secondary,#f9fafb)] transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-[13px] rounded-lg border border-border-subtle bg-elevated text-fg hover:bg-brand-subtle hover:text-brand hover:border-brand/30 transition-colors cursor-pointer"
           >
             {p.label}
           </button>
@@ -24,21 +24,21 @@ export function FilterBar({ dateFrom, dateTo, channel, onDateFrom, onDateTo, onC
           type="date"
           value={dateFrom}
           onChange={(e) => onDateFrom(e.target.value)}
-          className="px-2 py-1.5 rounded-lg border border-[var(--border-subtle,#e5e7eb)] bg-[var(--bg-primary,#fff)] text-[var(--text-primary,#111)] text-[13px]"
+          className="px-2 py-1.5 rounded-lg border border-border-subtle bg-elevated text-fg text-[13px]"
         />
-        <span className="text-[var(--text-secondary,#6b7280)]">—</span>
+        <span className="text-fg-muted">—</span>
         <input
           type="date"
           value={dateTo}
           onChange={(e) => onDateTo(e.target.value)}
-          className="px-2 py-1.5 rounded-lg border border-[var(--border-subtle,#e5e7eb)] bg-[var(--bg-primary,#fff)] text-[var(--text-primary,#111)] text-[13px]"
+          className="px-2 py-1.5 rounded-lg border border-border-subtle bg-elevated text-fg text-[13px]"
         />
       </div>
 
       <select
         value={channel}
         onChange={(e) => onChannel(e.target.value)}
-        className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle,#e5e7eb)] bg-[var(--bg-primary,#fff)] text-[var(--text-primary,#111)] text-[13px]"
+        className="px-3 py-1.5 rounded-lg border border-border-subtle bg-elevated text-fg text-[13px]"
       >
         <option value="">Все каналы</option>
         <option value="portal">Портал</option>

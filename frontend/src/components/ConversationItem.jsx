@@ -214,10 +214,10 @@ export function ConversationItem({ conversation, isActive, onSelect, onArchive, 
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          className={`group relative flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg ${
+          className={`group relative flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-lg transition-colors duration-100 ${
             isActive
-              ? 'bg-brand/10 text-brand'
-              : 'bg-white dark:bg-[#1a1a1a] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-fg'
+              ? 'bg-brand/8 border-l-2 border-brand text-fg'
+              : 'bg-surface hover:bg-inset text-fg'
           }`}
           style={{
             transform: swipeX ? `translateX(${swipeX}px)` : undefined,
@@ -246,10 +246,10 @@ export function ConversationItem({ conversation, isActive, onSelect, onArchive, 
                   {title}
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs text-fg-muted truncate">
+                  <span className="text-xs text-fg-tertiary truncate">
                     {conversation.message_count > 0 ? `${conversation.message_count} сообщ.` : ''}
                   </span>
-                  {time && <span className="text-xs text-fg-muted shrink-0">{time}</span>}
+                  {time && <span className="text-xs text-fg-tertiary shrink-0">{time}</span>}
                 </div>
               </>
             )}
@@ -260,7 +260,7 @@ export function ConversationItem({ conversation, isActive, onSelect, onArchive, 
             <button
               ref={triggerRef}
               onClick={handleMenuToggle}
-              className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-black/[0.06] dark:hover:bg-white/[0.08] transition-all"
+              className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-inset transition-all"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="text-fg-muted">
                 <circle cx="8" cy="3" r="1.5" />
@@ -276,12 +276,12 @@ export function ConversationItem({ conversation, isActive, onSelect, onArchive, 
       {menuOpen && (
         <div
           ref={menuRef}
-          className="fixed z-[100] w-44 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-[#2a2a2a] shadow-xl py-1 animate-[fade-in_0.12s_ease]"
+          className="fixed z-[100] w-44 rounded-xl border border-border-default bg-elevated shadow-lg py-1.5 animate-[fade-in_0.12s_ease]"
           style={{ top: menuPos.top, left: menuPos.left }}
         >
           <button
             onClick={handleStartRename}
-            className="flex items-center gap-2.5 w-full text-left px-3 py-2 text-sm hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
+            className="flex items-center gap-2.5 w-full text-left px-3 py-2 text-sm hover:bg-inset transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-fg-muted shrink-0">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -291,15 +291,15 @@ export function ConversationItem({ conversation, isActive, onSelect, onArchive, 
           </button>
           <button
             onClick={handleArchive}
-            className="flex items-center gap-2.5 w-full text-left px-3 py-2 text-sm hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
+            className="flex items-center gap-2.5 w-full text-left px-3 py-2 text-sm hover:bg-inset transition-colors"
           >
             <ArchiveIcon size={14} />
             {archiveLabel || 'Архивировать'}
           </button>
-          <div className="my-0.5 mx-2 border-t border-black/[0.06] dark:border-white/[0.06]" />
+          <div className="my-0.5 mx-2 border-t border-border-subtle" />
           <button
             onClick={handleDeleteClick}
-            className="flex items-center gap-2.5 w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            className="flex items-center gap-2.5 w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
               <polyline points="3 6 5 6 21 6" />
@@ -313,7 +313,7 @@ export function ConversationItem({ conversation, isActive, onSelect, onArchive, 
       {/* Delete confirmation — also outside overflow-hidden */}
       {confirmDelete && (
         <div
-          className="absolute inset-0 z-40 flex items-center justify-center rounded-lg bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-sm animate-[fade-in_0.15s_ease]"
+          className="absolute inset-0 z-40 flex items-center justify-center rounded-lg bg-elevated/95 backdrop-blur-sm animate-[fade-in_0.15s_ease]"
           onClick={handleCancelDelete}
         >
           <div className="flex flex-col items-center gap-2 px-3" onClick={(e) => e.stopPropagation()}>
@@ -321,7 +321,7 @@ export function ConversationItem({ conversation, isActive, onSelect, onArchive, 
             <div className="flex gap-2">
               <button
                 onClick={handleCancelDelete}
-                className="px-3 py-1 text-xs font-medium rounded-lg bg-black/[0.05] dark:bg-white/[0.08] hover:bg-black/[0.08] dark:hover:bg-white/[0.12] transition-colors"
+                className="px-3 py-1 text-xs font-medium rounded-lg bg-inset hover:bg-border-default transition-colors"
               >
                 Отмена
               </button>

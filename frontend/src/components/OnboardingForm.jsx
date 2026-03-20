@@ -129,7 +129,7 @@ export function OnboardingForm({ formType, disabled, onSubmit, isExisting }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-3 space-y-3 max-w-[320px]">
+    <form onSubmit={handleSubmit} className="mt-3 space-y-3 max-w-[320px] bg-elevated/50 rounded-2xl p-4 border border-border-subtle">
       {isParent ? (
         <>
           {students.map((student, i) => (
@@ -193,14 +193,19 @@ export function OnboardingForm({ formType, disabled, onSubmit, isExisting }) {
       <button
         type="submit"
         className="
-          w-full py-2.5 rounded-xl text-[14px] font-medium
+          w-full py-2.5 rounded-2xl text-[14px] font-medium
           bg-brand text-white
           transition-all duration-200 ease-out
-          hover:brightness-110 active:scale-[0.98]
+          hover:bg-brand-hover active:scale-[0.97]
           shadow-sm hover:shadow-md
+          flex items-center justify-center gap-1.5
         "
       >
         Продолжить
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12" />
+          <polyline points="12 5 19 12 12 19" />
+        </svg>
       </button>
     </form>
   )

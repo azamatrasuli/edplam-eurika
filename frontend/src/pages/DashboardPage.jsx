@@ -25,20 +25,20 @@ export function DashboardPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-secondary,#f9fafb)]">
+      <div className="min-h-screen flex items-center justify-center bg-surface-alt">
         <div className="text-center p-6">
-          <p className="text-lg font-medium text-[var(--text-primary,#111)] mb-2">Ошибка</p>
-          <p className="text-[var(--text-secondary,#6b7280)] text-sm">{error}</p>
+          <p className="text-lg font-medium text-fg mb-2">Ошибка</p>
+          <p className="text-fg-muted text-sm">{error}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-secondary,#f9fafb)]">
-      <header className="bg-[var(--bg-primary,#fff)] border-b border-[var(--border-subtle,#e5e7eb)] px-6 py-4">
+    <div className="min-h-screen bg-surface-alt">
+      <header className="bg-elevated border-b border-border-subtle px-6 py-4">
         <div className="max-w-[1200px] mx-auto flex flex-col gap-3">
-          <h1 className="text-lg font-semibold text-[var(--text-primary,#111)]">Эврика — Дашборд</h1>
+          <h1 className="text-lg font-semibold text-fg tracking-tight">Эврика — Дашборд</h1>
           <FilterBar
             dateFrom={dateFrom}
             dateTo={dateTo}
@@ -54,7 +54,7 @@ export function DashboardPage() {
       <main className="max-w-[1200px] mx-auto px-6 py-5 space-y-5">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <span className="text-[var(--text-secondary,#6b7280)]">Загрузка...</span>
+            <span className="text-fg-muted">Загрузка...</span>
           </div>
         ) : (
           <>

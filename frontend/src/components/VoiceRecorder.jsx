@@ -147,18 +147,18 @@ export function VoiceRecorder({ onDone, onCancel }) {
   const ss = String(elapsed % 60).padStart(2, '0')
 
   return (
-    <div className="flex items-center gap-3 bg-input-surface border-[1.5px] border-input-border rounded-3xl px-3 py-2 h-[52px]">
+    <div className="flex items-center gap-3 bg-elevated border border-input-border rounded-2xl px-3 py-2 h-[52px]">
       <button
         type="button"
         onClick={handleCancel}
-        className="w-8 h-8 flex items-center justify-center rounded-full border-none cursor-pointer bg-voice hover:bg-voice-hover text-fg-muted hover:text-fg transition-colors duration-150"
+        className="w-8 h-8 flex items-center justify-center rounded-full border-none cursor-pointer bg-inset hover:bg-red-500/10 text-fg-muted hover:text-red-500 transition-colors duration-150"
         title="Отменить запись"
       >
         <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
       </button>
 
       <div className="flex items-center gap-1.5 shrink-0 min-w-[58px]">
-        <span className="w-2 h-2 rounded-full bg-red-500 animate-[transcribe-pulse_1.2s_infinite_ease-in-out]" />
+        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-[transcribe-pulse_1.2s_infinite_ease-in-out] shadow-[0_0_6px_rgba(239,68,68,0.4)]" />
         <span className="text-sm font-mono text-fg tabular-nums">{mm}:{ss}</span>
       </div>
 
@@ -180,7 +180,7 @@ export function VoiceRecorder({ onDone, onCancel }) {
       <button
         type="button"
         onClick={handleDone}
-        className="w-8 h-8 flex items-center justify-center rounded-full border-none cursor-pointer bg-brand text-white hover:bg-brand-hover transition-colors duration-150"
+        className="w-8 h-8 flex items-center justify-center rounded-full border-none cursor-pointer bg-brand text-white shadow-sm hover:bg-brand-hover transition-colors duration-150"
         title="Готово"
       >
         <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>

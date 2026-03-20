@@ -270,7 +270,7 @@ export function ChatPage() {
           {/* Hamburger menu for mobile */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="sm:hidden p-2 -ml-1 rounded-lg hover:bg-black/[0.06] dark:hover:bg-white/[0.08] transition-colors"
+            className="sm:hidden p-2 -ml-1 rounded-lg hover:bg-inset transition-colors"
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="3" y1="5" x2="17" y2="5" />
