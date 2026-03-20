@@ -21,6 +21,8 @@ _TOOL_LABELS = {
     "get_client_profile": "Загружаю профиль клиента...",
     "generate_payment_link": "Готовлю ссылку на оплату...",
     "escalate_to_manager": "Подключаю менеджера...",
+    "create_manager_task": "Создаю задачу менеджеру...",
+    "register_decline": "Фиксирую обратную связь...",
     "create_amocrm_ticket": "Создаю обращение...",
 }
 

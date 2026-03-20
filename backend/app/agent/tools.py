@@ -172,6 +172,62 @@ SALES_TOOL_DEFINITIONS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "create_manager_task",
+            "description": (
+                "Создать задачу менеджеру после квалификации клиента и показа предложения. "
+                "Создаёт сделку в CRM, добавляет данные квалификации и уведомляет менеджера. "
+                "Вызывай ПОСЛЕ того как показал клиенту предложение по тарифам."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name": {"type": "string", "description": "Имя клиента (родителя)"},
+                    "phone": {"type": "string", "description": "Номер телефона"},
+                    "telegram_id": {"type": "string", "description": "Telegram ID (если есть)"},
+                    "country": {"type": "string", "description": "Страна проживания (Россия, ОАЭ, другое)"},
+                    "children_count": {"type": "integer", "description": "Количество детей"},
+                    "children_details": {
+                        "type": "string",
+                        "description": "Информация по каждому ребёнку: класс, выбранный тариф",
+                    },
+                    "moscow_registration": {"type": "boolean", "description": "Есть ли московская прописка"},
+                    "currency": {"type": "string", "description": "Валюта оплаты (RUB, USD, EUR, AED)"},
+                    "proposal_summary": {
+                        "type": "string",
+                        "description": "Краткое описание предложения: какие тарифы рекомендованы, цены, кросс-сейл",
+                    },
+                },
+                "required": ["client_name", "country", "children_count", "children_details", "proposal_summary"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "register_decline",
+            "description": (
+                "Зафиксировать отказ клиента от покупки. Вызывай когда клиент окончательно отказался "
+                "и назвал причину. Причины из чек-листа: дорого, не подходит формат, другая школа, "
+                "не готовы сейчас, не устроило качество, другое."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "lead_id": {"type": "integer", "description": "ID сделки в amoCRM (если есть)"},
+                    "decline_reasons": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Причины отказа из чек-листа",
+                    },
+                    "notes": {"type": "string", "description": "Дополнительные комментарии клиента"},
+                },
+                "required": ["decline_reasons"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "escalate_to_manager",
             "description": (
                 "Передать диалог живому менеджеру. Вызывай ОБЯЗАТЕЛЬНО если: "
@@ -494,6 +550,181 @@ class ToolExecutor:
             is_escalation=True,
             escalation_reason=reason,
         )
+
+    def _tool_create_manager_task(
+        self,
+        client_name: str,
+        country: str,
+        children_count: int,
+        children_details: str,
+        proposal_summary: str,
+        phone: str | None = None,
+        telegram_id: str | None = None,
+        moscow_registration: bool | None = None,
+        currency: str | None = None,
+    ) -> ToolResult:
+        """Create CRM lead + note + manager notification after qualification."""
+        try:
+            # Build qualification note
+            note_lines = [
+                "📋 Квалификация ИИ-агентом",
+                f"Клиент: {client_name}",
+                f"Страна: {country}",
+                f"Детей: {children_count}",
+                f"Дети: {children_details}",
+            ]
+            if moscow_registration is not None:
+                note_lines.append(f"Московская прописка: {'Да' if moscow_registration else 'Нет'}")
+            if currency and currency != "RUB":
+                note_lines.append(f"Валюта: {currency}")
+            if phone:
+                note_lines.append(f"Телефон: {phone}")
+            note_lines.append(f"\n💡 Предложение ИИ:\n{proposal_summary}")
+            note_text = "\n".join(note_lines)
+
+            # Create contact + lead in CRM
+            contact, is_new = self.crm.find_or_create_contact(
+                phone=phone,
+                name=client_name,
+                telegram_id=telegram_id or self._extract_telegram_id(),
+            )
+            if not contact:
+                return ToolResult(
+                    name="create_manager_task",
+                    result='{"success": false, "message": "Не удалось создать контакт в CRM. Менеджер будет уведомлён через Telegram."}',
+                )
+
+            # Save contact mapping
+            if self.actor_id:
+                self.repo.save_contact_mapping(self.actor_id, contact.id)
+
+            # Create lead with proposal data
+            product_line = children_details.split(",")[0].strip() if children_details else ""
+            lead = self.crm.create_lead(
+                name=f"AI-Квалификация: {client_name} — {product_line}",
+                contact_id=contact.id,
+                pipeline_id=get_settings().amocrm_sales_pipeline_id,
+                product=product_line,
+                amount=None,
+            )
+
+            lead_id = lead.id if lead else None
+
+            # Add qualification note
+            if lead_id:
+                self.crm.add_note(lead_id, note_text)
+                if self.conversation_id:
+                    self.repo.save_deal_mapping(self.conversation_id, lead_id, contact.id)
+
+            # Telegram notification to manager
+            self._notify_manager_task(client_name, country, children_details, proposal_summary, phone)
+
+            return ToolResult(
+                name="create_manager_task",
+                result=json.dumps({
+                    "success": True,
+                    "lead_id": lead_id,
+                    "contact_id": contact.id,
+                    "message": "Задача создана. Менеджер получил уведомление и свяжется с клиентом.",
+                }, ensure_ascii=False),
+            )
+        except Exception as e:
+            logger.exception("create_manager_task failed")
+            # Fallback: at least notify via Telegram
+            self._notify_manager_task(client_name, country, children_details, proposal_summary, phone)
+            return ToolResult(
+                name="create_manager_task",
+                result=json.dumps({
+                    "success": True,
+                    "message": "Менеджер уведомлён через Telegram. Сделка в CRM будет создана вручную.",
+                }, ensure_ascii=False),
+            )
+
+    def _notify_manager_task(
+        self, name: str, country: str, details: str, proposal: str, phone: str | None,
+    ) -> None:
+        """Send Telegram notification about new qualified lead."""
+        import httpx
+
+        settings = get_settings()
+        chat_id = settings.manager_telegram_chat_id
+        bot_token = settings.telegram_bot_token
+        if not chat_id or not bot_token:
+            return
+
+        def _esc(t: str) -> str:
+            return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+        text = (
+            f"<b>🎯 Новая квалификация от ИИ-агента</b>\n\n"
+            f"<b>Клиент:</b> {_esc(name)}\n"
+            f"<b>Страна:</b> {_esc(country)}\n"
+            f"<b>Дети:</b> {_esc(details)}\n"
+        )
+        if phone:
+            text += f"<b>Телефон:</b> {_esc(phone)}\n"
+        text += f"\n<b>Предложение ИИ:</b>\n{_esc(proposal[:500])}"
+        if self.conversation_id:
+            text += f"\n\n<b>ID диалога:</b> <code>{_esc(self.conversation_id)}</code>"
+
+        try:
+            httpx.post(
+                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
+                timeout=10,
+            )
+        except Exception:
+            logger.warning("Failed to send manager task notification")
+
+    def _extract_telegram_id(self) -> str | None:
+        """Extract telegram_id from actor_id if available."""
+        if self.actor_id and self.actor_id.startswith("telegram:"):
+            return self.actor_id.replace("telegram:", "")
+        return None
+
+    def _tool_register_decline(
+        self,
+        decline_reasons: list[str],
+        lead_id: int | None = None,
+        notes: str | None = None,
+    ) -> ToolResult:
+        """Register client decline with reasons."""
+        try:
+            # Update deal status to "lost" if lead exists
+            if lead_id:
+                self.crm.update_lead(lead_id, status_id=143)  # 143 = closed-lost
+                reason_text = ", ".join(decline_reasons)
+                note = f"❌ Отказ клиента\nПричины: {reason_text}"
+                if notes:
+                    note += f"\nКомментарий: {notes}"
+                self.crm.add_note(lead_id, note)
+
+            # Track decline event
+            self.events.track(
+                "client_decline",
+                conversation_id=self.conversation_id,
+                actor_id=self.actor_id or "",
+                agent_role=self.agent_role,
+                data={"reasons": decline_reasons, "notes": notes, "lead_id": lead_id},
+            )
+
+            return ToolResult(
+                name="register_decline",
+                result=json.dumps({
+                    "registered": True,
+                    "reasons": decline_reasons,
+                    "message": "Отказ зафиксирован. Спасибо за обратную связь.",
+                }, ensure_ascii=False),
+            )
+        except Exception as e:
+            logger.exception("register_decline failed")
+            return ToolResult(
+                name="register_decline",
+                result=json.dumps({
+                    "registered": False,
+                    "message": f"Не удалось зафиксировать отказ: {e}",
+                }, ensure_ascii=False),
+            )
 
     def _tool_get_client_profile(self, phone: str) -> ToolResult:
         """Look up client profile in DMS by phone number and auto-save to profile store."""
