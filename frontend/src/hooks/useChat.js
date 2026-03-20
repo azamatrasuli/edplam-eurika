@@ -150,6 +150,12 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
 
     const storageKey = getStorageKey(agentRole)
 
+    // Show "warming up" hint if server is slow (Render cold start)
+    let gotFirstToken = false
+    const warmingTimer = setTimeout(() => {
+      if (!gotFirstToken) setToolStatus('Сервер загружается...')
+    }, 8000)
+
     try {
       await streamChat({
         auth,
@@ -158,6 +164,11 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
         agentRole,
         signal: controller.signal,
         onEvent: (event, payload) => {
+          if (!gotFirstToken && (event === 'token' || event === 'meta' || event === 'tool_call')) {
+            gotFirstToken = true
+            clearTimeout(warmingTimer)
+          }
+
           if (event === 'meta' && payload.conversation_id && payload.conversation_id !== conversationIdRef.current) {
             setConversationId(payload.conversation_id)
             conversationIdRef.current = payload.conversation_id
@@ -247,6 +258,7 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true) {
       }
       setError(errMsg)
     } finally {
+      clearTimeout(warmingTimer)
       abortRef.current = null
     }
   }, [auth, agentRole, typing, escalated])

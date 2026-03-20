@@ -121,7 +121,7 @@ function parseSSE(buffer, onEvent) {
   return buffer
 }
 
-const SSE_TIMEOUT_MS = 45_000
+const SSE_TIMEOUT_MS = 90_000
 
 async function readSSEStream(response, onEvent) {
   const reader = response.body.getReader()
