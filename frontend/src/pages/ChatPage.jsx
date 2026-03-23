@@ -121,6 +121,7 @@ export function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [handbackLoading, setHandbackLoading] = useState(false)
+  const [managerActive, setManagerActive] = useState(managerMode) // true = manager controls chat
 
   // Error toast for sidebar operations
   const [errorToast, setErrorToast] = useState('')
@@ -314,20 +315,27 @@ export function ChatPage() {
                 if (handbackLoading) return
                 setHandbackLoading(true)
                 const key = new URLSearchParams(window.location.hash.split('?')[1] || '').get('manager_key')
-                fetch(`${API_BASE_URL}/api/v1/manager/handback/${convFromURL}?key=${key}`)
+                const action = managerActive ? 'handback' : 'connect'
+                fetch(`${API_BASE_URL}/api/v1/manager/${action}/${convFromURL}?key=${key}`)
+                  .then(() => setManagerActive(!managerActive))
                   .catch(() => {})
                   .finally(() => {
-                    setTimeout(() => setHandbackLoading(false), 3000)
+                    setTimeout(() => setHandbackLoading(false), 2000)
                   })
               }}
               disabled={handbackLoading}
               className={`ml-auto px-3 py-1.5 text-xs font-medium rounded-lg transition-colors shrink-0 ${
                 handbackLoading
                   ? 'bg-gray-600/20 text-gray-500 cursor-not-allowed'
-                  : 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 cursor-pointer'
+                  : managerActive
+                    ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 cursor-pointer'
+                    : 'bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 cursor-pointer'
               }`}
             >
-              {handbackLoading ? '⏳ Возвращаю...' : '🤖 Вернуть ИИ'}
+              {handbackLoading
+                ? (managerActive ? '⏳ Возвращаю...' : '⏳ Подключаюсь...')
+                : (managerActive ? '🤖 Вернуть ИИ' : '💬 Подключиться')
+              }
             </button>
           )}
         </header>

@@ -49,17 +49,28 @@ export function SupervisorPage() {
     return () => clearInterval(interval)
   }, [loadConversations])
 
-  const openConversation = useCallback(async (conv) => {
-    setSelectedConv(conv)
-    setMessagesLoading(true)
+  const loadMessages = useCallback(async (convId, showLoading = false) => {
+    if (showLoading) setMessagesLoading(true)
     try {
-      const data = await fetchConversationMessages(conv.id)
+      const data = await fetchConversationMessages(convId)
       setMessages(data.messages || [])
     } catch {
       setMessages([])
     }
-    setMessagesLoading(false)
+    if (showLoading) setMessagesLoading(false)
   }, [])
+
+  const openConversation = useCallback(async (conv) => {
+    setSelectedConv(conv)
+    await loadMessages(conv.id, true)
+  }, [loadMessages])
+
+  // Auto-refresh messages for selected conversation every 3 seconds
+  useEffect(() => {
+    if (!selectedConv) return
+    const interval = setInterval(() => loadMessages(selectedConv.id), 3000)
+    return () => clearInterval(interval)
+  }, [selectedConv, loadMessages])
 
   if (!key) {
     return (

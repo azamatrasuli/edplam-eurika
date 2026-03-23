@@ -36,6 +36,8 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
     setLoading(true)
     setTyping(false)
     setError('')
+    // Clear fingerprints for fresh conversation
+    seenContentRef.current = new Set()
     // Only reset escalation on forced new conversation
     if (forceNew) {
       setEscalated(false)
@@ -63,8 +65,7 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
         try {
           const historyData = await fetchMessages(convId, auth)
           if (historyData.messages && historyData.messages.length > 0) {
-            setMessages(
-              historyData.messages
+            const loaded = historyData.messages
                 .filter((m) => m.role !== 'system')
                 .map((m) => ({
                   id: crypto.randomUUID(),
@@ -72,8 +73,12 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
                   content: m.content,
                   fromHistory: true,
                   type: m.metadata?.source === 'manager' ? 'manager' : undefined,
-                })),
-            )
+                }))
+            setMessages(loaded)
+            // Seed fingerprints so SSE won't duplicate loaded messages
+            for (const m of loaded) {
+              seedFingerprint(m.role, m.content)
+            }
             // Also check escalation from messages endpoint
             if (historyData.status === 'escalated') {
               setEscalated(true)
@@ -95,6 +100,7 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
       ]
 
       setMessages(initMessages)
+      seedFingerprint('assistant', greeting)
       setStarted(true)
       setLoading(false)
       return data
@@ -142,16 +148,10 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
   // Track content fingerprints to prevent ANY duplicates
   const seenContentRef = useRef(new Set())
 
-  // Seed seen content from loaded messages (history + greeting)
-  useEffect(() => {
-    if (messages.length > 0) {
-      const fingerprints = new Set()
-      for (const m of messages) {
-        fingerprints.add(`${m.role}:${m.content?.slice(0, 80)}`)
-      }
-      seenContentRef.current = fingerprints
-    }
-  }, []) // Only on mount — don't re-run on messages change
+  // Helper: seed fingerprint for a message
+  const seedFingerprint = useCallback((role, content) => {
+    if (content) seenContentRef.current.add(`${role}:${content.slice(0, 80)}`)
+  }, [])
 
   useEffect(() => {
     if (!conversationId) return
@@ -306,6 +306,7 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
           }
 
           if (event === 'manager_message') {
+            seedFingerprint('assistant', payload.text)
             setMessages((prev) => [
               ...prev,
               {
@@ -340,8 +341,14 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
           if (event === 'done') {
             setTyping(false)
             setToolStatus('')
-            // Remove empty assistant placeholder (manager mode or no-response)
-            setMessages((prev) => prev.filter((m) => m.id !== assistantId || m.content))
+            // Fingerprint the completed assistant response so SSE won't duplicate
+            setMessages((prev) => {
+              const assistantMsg = prev.find((m) => m.id === assistantId)
+              if (assistantMsg?.content) {
+                seedFingerprint('assistant', assistantMsg.content)
+              }
+              return prev.filter((m) => m.id !== assistantId || m.content)
+            })
             // Update sidebar metadata reactively
             if (bumpCallbackRef.current) {
               bumpCallbackRef.current(conversationIdRef.current, text)

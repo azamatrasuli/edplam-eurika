@@ -777,7 +777,7 @@ async def listen_events(conversation_id: str, request: Request):
                 logger.debug("SSE listen error", exc_info=True)
                 yield ": error\n\n"
 
-            await asyncio.sleep(1.5)  # Check every 1.5 seconds
+            await asyncio.sleep(0.5)  # Fast polling for real-time feel
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -818,6 +818,35 @@ def manager_handback_to_ai(conversation_id: str, request: Request):
 <body><div class="card"><div class="icon">🤖</div><h2>Диалог возвращён Эврике</h2>
 <p>Клиент теперь общается с ИИ-ассистентом.</p></div></body></html>"""
     return HTMLResponse(html)
+
+
+# ---------------------------------------------------------------------------
+# Manager: connect (re-activate manager mode)
+# ---------------------------------------------------------------------------
+
+@router.post("/manager/connect/{conversation_id}")
+@router.get("/manager/connect/{conversation_id}")
+def manager_connect(conversation_id: str, request: Request):
+    """Manager re-connects to conversation. Client messages go to manager again."""
+    settings = get_settings()
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.replace("Bearer ", "").strip()
+    key_param = request.query_params.get("key", "")
+    if not settings.dashboard_api_key or (token != settings.dashboard_api_key and key_param != settings.dashboard_api_key):
+        raise HTTPException(401, "Invalid API key")
+
+    chat_service.repo.set_manager_active(conversation_id, True)
+
+    owner = chat_service.repo.get_conversation_owner(conversation_id)
+    if owner:
+        chat_service.repo.save_message(
+            conversation_id=conversation_id,
+            role="assistant",
+            content="Менеджер подключился к диалогу.",
+            metadata={"source": "system", "event": "manager_connected"},
+        )
+
+    return {"status": "connected", "conversation_id": conversation_id}
 
 
 # ---------------------------------------------------------------------------
