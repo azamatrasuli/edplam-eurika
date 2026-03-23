@@ -191,6 +191,9 @@ def _make_stream(
     # Deliver pending manager messages (arrived via imBox while user was away)
     try:
         pending_mgr = chat_service.repo.get_undelivered_manager_messages(ctx.conversation.id)
+        # Fallback: check by actor_id for messages with NULL agent_conversation_id
+        if not pending_mgr:
+            pending_mgr = chat_service.repo.get_undelivered_manager_messages_by_actor(actor.actor_id)
         if pending_mgr:
             for msg in pending_mgr:
                 sender = msg.get("sender_name", "Менеджер")
@@ -650,21 +653,25 @@ async def _process_chat_webhook(request: Request, scope_id: str | None = None):
                 logger.info("Escalation resolved via imBox command for conv=%s", agent_conv_id)
         return {"status": "resolved"}
 
-    # Save raw manager message
+    # Find agent conversation for this actor (escalated > active > any latest)
+    agent_conv_id = (
+        chat_service.repo.find_escalated_conversation(actor_id)
+        or chat_service.repo.find_active_conversation(actor_id)
+        or chat_service.repo.find_latest_conversation(actor_id)
+    )
+
+    # Save raw manager message (with agent_conversation_id for deferred delivery)
     imbox_service.repo.save_manager_message(
         actor_id=actor_id,
         content=text,
         conversation_id=conversation_id,
         amocrm_msgid=msgid,
         sender_name=display_name,
+        agent_conversation_id=agent_conv_id,
     )
 
     # Inject into agent conversation so client sees it in real-time
     try:
-        agent_conv_id = (
-            chat_service.repo.find_escalated_conversation(actor_id)
-            or chat_service.repo.find_active_conversation(actor_id)
-        )
         if agent_conv_id:
             chat_service.repo.save_message(
                 conversation_id=agent_conv_id,

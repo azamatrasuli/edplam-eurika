@@ -712,6 +712,28 @@ class ConversationRepository:
         except (psycopg.Error, OSError):
             return None
 
+    def find_latest_conversation(self, actor_id: str) -> str | None:
+        """Find most recent conversation for actor, regardless of status."""
+        if not self._has_db():
+            return None
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return None
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT id FROM conversations
+                        WHERE actor_id = %s
+                        ORDER BY updated_at DESC LIMIT 1
+                        """,
+                        (actor_id,),
+                    )
+                    row = cur.fetchone()
+                    return str(row["id"]) if row else None
+        except (psycopg.Error, OSError):
+            return None
+
     def get_undelivered_manager_messages(self, agent_conversation_id: str) -> list[dict]:
         """Get undelivered manager messages for a conversation."""
         if not self._has_db():
@@ -733,6 +755,29 @@ class ConversationRepository:
                     return [dict(r) for r in cur.fetchall()]
         except (psycopg.Error, OSError):
             logger.warning("Failed to get undelivered manager messages", exc_info=True)
+            return []
+
+    def get_undelivered_manager_messages_by_actor(self, actor_id: str) -> list[dict]:
+        """Get undelivered manager messages by actor_id (fallback when agent_conversation_id is NULL)."""
+        if not self._has_db():
+            return []
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return []
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT id, content, sender_name, created_at
+                        FROM agent_manager_messages
+                        WHERE actor_id = %s AND delivered = FALSE
+                        ORDER BY created_at ASC
+                        """,
+                        (actor_id,),
+                    )
+                    return [dict(r) for r in cur.fetchall()]
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to get undelivered manager messages by actor", exc_info=True)
             return []
 
     def mark_manager_messages_delivered(self, message_ids: list[str]) -> None:
@@ -845,6 +890,7 @@ class ConversationRepository:
         conversation_id: str | None = None,
         amocrm_msgid: str | None = None,
         sender_name: str | None = None,
+        agent_conversation_id: str | None = None,
     ) -> None:
         if not self._has_db():
             return
@@ -856,10 +902,10 @@ class ConversationRepository:
                     cur.execute(
                         """
                         INSERT INTO agent_manager_messages
-                          (actor_id, conversation_id, amocrm_msgid, sender_name, content)
-                        VALUES (%s, %s, %s, %s, %s)
+                          (actor_id, conversation_id, amocrm_msgid, sender_name, content, agent_conversation_id)
+                        VALUES (%s, %s, %s, %s, %s, %s)
                         """,
-                        (actor_id, conversation_id, amocrm_msgid, sender_name, content),
+                        (actor_id, conversation_id, amocrm_msgid, sender_name, content, agent_conversation_id),
                     )
                 conn.commit()
         except (psycopg.Error, OSError):
