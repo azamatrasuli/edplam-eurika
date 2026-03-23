@@ -318,7 +318,7 @@ export function ChatPage() {
                 const action = managerActive ? 'handback' : 'connect'
                 fetch(`${API_BASE_URL}/api/v1/manager/${action}/${convFromURL}?key=${key}`)
                   .then(() => setManagerActive(!managerActive))
-                  .catch(() => {})
+                  .catch(() => showErrorToast('Не удалось переключить режим'))
                   .finally(() => {
                     setTimeout(() => setHandbackLoading(false), 2000)
                   })
@@ -339,6 +339,12 @@ export function ChatPage() {
             </button>
           )}
         </header>
+
+        {!chat.sseConnected && (
+          <div className="px-4 py-1.5 text-center text-xs text-amber-400 bg-amber-500/10 border-b border-amber-500/20 shrink-0">
+            Переподключение к серверу...
+          </div>
+        )}
 
         <EscalationBanner active={chat.escalated} reason={chat.escalationReason} />
 

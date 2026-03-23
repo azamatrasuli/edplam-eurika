@@ -53,6 +53,12 @@ export function useTTS(auth, { onError } = {}) {
       if (!blobUrl) {
         const blob = await synthesizeSpeech(text, auth)
         blobUrl = URL.createObjectURL(blob)
+        // Evict oldest entry if cache exceeds 30 items
+        if (cacheRef.current.size >= 30) {
+          const oldest = cacheRef.current.keys().next().value
+          URL.revokeObjectURL(cacheRef.current.get(oldest))
+          cacheRef.current.delete(oldest)
+        }
         cacheRef.current.set(messageId, blobUrl)
       }
 

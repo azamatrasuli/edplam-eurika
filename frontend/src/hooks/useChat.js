@@ -22,6 +22,10 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
   const conversationIdRef = useRef(conversationId)
   const titleCallbackRef = useRef(null)
   const bumpCallbackRef = useRef(null)
+  const typingRef = useRef(false)
+  const escalatedRef = useRef(false)
+  const [sseConnected, setSseConnected] = useState(true)
+  const sseRetryRef = useRef(0)
 
   // --- Load a conversation (new or existing) ---
   const loadConversation = useCallback(async (convId = null, forceNew = false) => {
@@ -34,6 +38,7 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
     }
 
     setLoading(true)
+    typingRef.current = false
     setTyping(false)
     setError('')
     // Clear seen DB IDs for fresh conversation
@@ -129,6 +134,10 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
     conversationIdRef.current = conversationId
   }, [conversationId])
 
+  // Keep refs in sync with state for synchronous guard checks
+  useEffect(() => { typingRef.current = typing }, [typing])
+  useEffect(() => { escalatedRef.current = escalated }, [escalated])
+
   // Cleanup abort controller on unmount
   useEffect(() => {
     return () => {
@@ -203,7 +212,15 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
       }
     })
 
-    evtSource.onerror = () => { /* SSE auto-reconnects */ }
+    evtSource.onopen = () => {
+      sseRetryRef.current = 0
+      setSseConnected(true)
+    }
+
+    evtSource.onerror = () => {
+      sseRetryRef.current += 1
+      if (sseRetryRef.current >= 3) setSseConnected(false)
+    }
 
     return () => evtSource.close()
   }, [conversationId, auth])
@@ -222,7 +239,7 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
 
   const sendMessage = useCallback(async (text) => {
     const currentConvId = conversationIdRef.current
-    if (!text.trim() || !auth || !currentConvId || typing || escalated) return
+    if (!text.trim() || !auth || !currentConvId || typingRef.current || escalatedRef.current) return
 
     setSuggestions([])
 
@@ -243,7 +260,8 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
       const userMsg = { id: crypto.randomUUID(), role: 'user', content: text }
       setMessages((prev) => [...prev, userMsg, { id: assistantId, role: 'assistant', content: '' }])
     }
-    setTyping(!managerMode) // manager doesn't wait for LLM
+    typingRef.current = !managerMode // Synchronous guard against double-send
+    setTyping(!managerMode)
     setToolStatus('')
     setError('')
 
@@ -386,7 +404,7 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
       clearTimeout(warmingTimer)
       abortRef.current = null
     }
-  }, [auth, agentRole, typing, escalated])
+  }, [auth, agentRole])
 
   const clearSuggestions = useCallback(() => setSuggestions([]), [])
 
@@ -424,5 +442,6 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
     onTitleUpdate,
     onBumpConversation,
     addSystemMessage,
+    sseConnected,
   }
 }

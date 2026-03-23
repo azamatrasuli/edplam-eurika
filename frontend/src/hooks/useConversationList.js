@@ -133,11 +133,7 @@ export function useConversationList(auth, agentRole = 'sales', { onError } = {})
       console.error('Failed to archive conversation:', e)
       onError?.('Не удалось архивировать диалог')
       if (conv) {
-        setConversations((prev) => {
-          const next = [...prev]
-          next.splice(convIndex, 0, conv)
-          return next
-        })
+        setConversations((prev) => [conv, ...prev])
         setTotal((prev) => prev + 1)
         setArchivedConvs((prev) => prev.filter((c) => c.id !== conversationId))
         if (wasActive) setActiveId(conversationId)
@@ -215,13 +211,8 @@ export function useConversationList(auth, agentRole = 'sales', { onError } = {})
     } catch (e) {
       console.error('Failed to delete conversation:', e)
       onError?.('Не удалось удалить диалог')
-      // Restore on failure
       if (conv) {
-        setConversations((prev) => {
-          const next = [...prev]
-          next.splice(convIndex, 0, conv)
-          return next
-        })
+        setConversations((prev) => [conv, ...prev])
         setTotal((prev) => prev + 1)
       }
     }

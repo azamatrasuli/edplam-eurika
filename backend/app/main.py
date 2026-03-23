@@ -37,6 +37,15 @@ async def lifespan(_app: FastAPI):
     start_scheduler()
     yield
     stop_scheduler()
+    # Close httpx clients to prevent resource leaks
+    try:
+        from app.api.chat import chat_service, imbox_service
+        if hasattr(chat_service, 'crm') and chat_service.crm and hasattr(chat_service.crm, '_http'):
+            chat_service.crm._http.close()
+        if hasattr(imbox_service, '_service') and hasattr(imbox_service._service, '_http'):
+            imbox_service._service._http.close()
+    except Exception:
+        pass
     close_pool()
 
 

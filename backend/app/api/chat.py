@@ -225,6 +225,7 @@ def _make_stream(
     usage_tokens = None
     rag_metadata = None
 
+    error_occurred = False
     try:
         while True:
             event = next(generator)
@@ -245,18 +246,23 @@ def _make_stream(
             rag_metadata = result.rag_metadata
     except Exception as exc:
         logger.exception("SSE: generator error: %s", exc)
+        error_occurred = True
+        yield _sse("error", {"message": "Произошла ошибка при генерации ответа"})
 
     answer = "".join(full_text).strip()
     if not answer:
         answer = "Извините, не смогла сформировать ответ. Попробуйте еще раз."
 
-    chat_service.save_assistant_message(
-        conversation_id=ctx.conversation.id,
-        text=answer,
-        usage_tokens=usage_tokens,
-        rag_metadata=rag_metadata,
-    )
-    imbox_service.forward_agent_response(actor, answer)
+    try:
+        chat_service.save_assistant_message(
+            conversation_id=ctx.conversation.id,
+            text=answer,
+            usage_tokens=usage_tokens,
+            rag_metadata=rag_metadata,
+        )
+        imbox_service.forward_agent_response(actor, answer)
+    except Exception:
+        logger.warning("Failed to save assistant message", exc_info=True)
 
     # Handle escalation
     if rag_metadata and rag_metadata.get("escalation"):
@@ -750,10 +756,13 @@ async def listen_events(conversation_id: str, request: Request):
 
     async def event_stream():
         last_check = datetime.now(timezone.utc)
+        loop = asyncio.get_event_loop()
         while True:
             try:
-                # Check for new messages since last check
-                new_msgs = chat_service.repo.get_messages_since(conversation_id, last_check)
+                # Check for new messages since last check (run sync DB in thread pool)
+                new_msgs = await loop.run_in_executor(
+                    None, chat_service.repo.get_messages_since, conversation_id, last_check,
+                )
                 for msg in new_msgs:
                     msg_data = {
                         "id": str(msg["id"]),

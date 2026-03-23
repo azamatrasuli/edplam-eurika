@@ -43,6 +43,9 @@ export function ConversationSidebar({
     setLocalQuery(searchQuery || '')
   }, [searchQuery])
 
+  // Cleanup search debounce timer on unmount
+  useEffect(() => () => clearTimeout(searchTimerRef.current), [])
+
   function handleSearchChange(e) {
     const q = e.target.value
     setLocalQuery(q)

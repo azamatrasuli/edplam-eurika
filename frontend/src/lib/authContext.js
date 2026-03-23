@@ -69,16 +69,16 @@ export function buildAuthPayload() {
     return { manager_key: managerKey }
   }
 
-  // Guest mode — use guest_id from URL if provided, otherwise sessionStorage
+  // Guest mode — use guest_id from URL if provided, otherwise localStorage (persists across tabs)
   const urlGuestId = getQueryParam('guest_id')
   if (urlGuestId) {
-    sessionStorage.setItem('eurika_guest_id', urlGuestId)
+    localStorage.setItem('eurika_guest_id', urlGuestId)
     return { guest_id: urlGuestId }
   }
-  let guestId = sessionStorage.getItem('eurika_guest_id')
+  let guestId = localStorage.getItem('eurika_guest_id') || sessionStorage.getItem('eurika_guest_id')
   if (!guestId) {
     guestId = crypto.randomUUID()
-    sessionStorage.setItem('eurika_guest_id', guestId)
   }
+  localStorage.setItem('eurika_guest_id', guestId)
   return { guest_id: guestId }
 }

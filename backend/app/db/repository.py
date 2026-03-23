@@ -1404,7 +1404,7 @@ class ConversationRepository:
             logger.warning("Failed to set manager active conv=%s", conversation_id, exc_info=True)
 
     def is_manager_active(self, conversation_id: str) -> bool:
-        """Check if manager is currently active in this conversation."""
+        """Check if manager is currently active. Auto-expires after 15 min inactivity."""
         if not self._has_db():
             return False
         try:
@@ -1412,6 +1412,23 @@ class ConversationRepository:
                 if conn is None:
                     return False
                 with conn.cursor() as cur:
+                    # Auto-expire: reset flag if manager inactive for 15+ minutes
+                    cur.execute(
+                        """
+                        UPDATE conversations
+                        SET manager_is_active = FALSE, updated_at = NOW()
+                        WHERE id = %s
+                          AND manager_is_active = TRUE
+                          AND last_manager_activity_at < NOW() - INTERVAL '15 minutes'
+                        RETURNING id
+                        """,
+                        (conversation_id,),
+                    )
+                    if cur.fetchone():
+                        conn.commit()
+                        logger.info("Manager auto-expired for conv=%s (15 min TTL)", conversation_id)
+                        return False
+
                     cur.execute(
                         "SELECT manager_is_active FROM conversations WHERE id = %s",
                         (conversation_id,),
