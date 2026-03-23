@@ -152,13 +152,23 @@ class ImBoxService:
             logger.exception("[forward_user] EXCEPTION while forwarding to imBox")
 
     def forward_agent_response(self, actor: ActorContext, text: str) -> None:
-        """Skip forwarding AI agent responses to amoCRM imBox.
-
-        amoCRM Chat API for custom channels only supports incoming messages
-        (from user to amoCRM). Outgoing messages (bot → user) require a
-        receiver format that custom channels cannot use.
-
-        The manager sees user messages in imBox and can respond directly.
-        This matches the reference bot behavior (amocrm_edpalm_bot).
-        """
-        logger.debug("[forward_agent] SKIP — bot responses not forwarded to imBox (by design)")
+        """Forward AI agent response to amoCRM imBox as bot (outgoing) message."""
+        if not self.is_enabled():
+            return
+        try:
+            conv_id = self.repo.get_or_create_chat_mapping(actor.actor_id)
+            result = self.client.send_message(
+                conversation_id=conv_id,
+                sender_id="eureka-bot",
+                sender_name="Эврика",
+                text=text,
+                is_bot=True,
+                receiver_id=actor.actor_id,
+                receiver_phone=actor.phone,
+            )
+            logger.info(
+                "[forward_agent] result: success=%s msgid=%s error=%s",
+                result.success, result.msgid, result.error,
+            )
+        except Exception:
+            logger.exception("[forward_agent] EXCEPTION while forwarding to imBox")
