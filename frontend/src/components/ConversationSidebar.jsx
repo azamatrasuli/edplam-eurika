@@ -34,7 +34,7 @@ export function ConversationSidebar({
   onUnarchive,
 }) {
   const [localQuery, setLocalQuery] = useState(searchQuery || '')
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1')
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) !== '0')
   const [showArchived, setShowArchived] = useState(false)
   const searchTimerRef = useRef(null)
   const listRef = useRef(null)
