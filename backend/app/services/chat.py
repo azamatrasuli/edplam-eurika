@@ -79,7 +79,6 @@ class ChatService:
         """Generate a personalized greeting based on channel, time, client type, and profile."""
         import datetime as _dt
 
-        name = actor.display_name.strip() if actor.display_name else None
         is_support = actor.agent_role == AgentRole.support
         is_teacher = actor.agent_role == AgentRole.teacher
 
@@ -94,6 +93,22 @@ class ChatService:
 
         # Check saved profile for richer context
         profile = self.onboarding.check_profile(actor.actor_id)
+
+        # --- Name resolution chain (priority: auth → profile → memory) ---
+        name = actor.display_name.strip() if actor.display_name else None
+        if not name and profile:
+            name = getattr(profile, "display_name", None) or getattr(profile, "fio", None)
+            # profile may be a dict (from get_user_profile)
+            if not name and isinstance(profile, dict):
+                name = profile.get("display_name") or profile.get("fio")
+        if not name:
+            try:
+                from app.db.memory_repository import MemoryRepository
+                name = MemoryRepository().get_user_name_from_atoms(actor.actor_id)
+            except Exception:
+                logger.debug("Memory name lookup failed for %s", actor.actor_id, exc_info=True)
+        if name:
+            name = name.strip()
         child_snippet = ""
         product_snippet = ""
         if profile and profile.dms_verified and profile.children:
@@ -481,7 +496,8 @@ class ChatService:
                 profile_context = (profile_context + "\n\n" + renewal_ctx) if profile_context else renewal_ctx
 
         # Load memory context from past conversations
-        yield StatusEvent(label="Вспоминаю наш разговор...")
+        from app.api.chat import _status_label  # noqa: local to avoid circular at module level
+        yield StatusEvent(label=_status_label("memory"))
         memory_context = None
         try:
             memory_context = self.memory.get_memory_context(
@@ -501,7 +517,7 @@ class ChatService:
                 logger.warning("Running summary failed for %s", conversation_id, exc_info=True)
 
         # Right before LLM call
-        yield StatusEvent(label="Формирую ответ...")
+        yield StatusEvent(label=_status_label("thinking"))
 
         return (yield from self.llm.stream_answer(
             user_text=user_text,
