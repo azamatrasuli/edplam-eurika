@@ -500,6 +500,27 @@ class ToolExecutor:
                 self.funnel.advance_stage(self.conversation_id, None, "info_gathering", force=True)
 
         chunks = search_knowledge_base(query, namespace=self.agent_role)
+
+        # Shared fallback: if primary results are weak, search "shared" namespace
+        # Teacher is excluded — its prompt prohibits discussing pricing/enrollment
+        primary_weak = len(chunks) < 3 or (chunks and all(c.similarity < 0.45 for c in chunks))
+        if primary_weak and self.agent_role in ("sales", "support"):
+            shared_chunks = search_knowledge_base(
+                query, namespace="shared", threshold=0.5,
+            )
+            if shared_chunks:
+                # Mark shared chunks so LLM knows the source
+                for sc in shared_chunks:
+                    sc.source = f"[общая] {sc.source}"
+                chunks.extend(shared_chunks)
+                # Re-sort by similarity, keep top_k
+                chunks.sort(key=lambda c: c.similarity, reverse=True)
+                chunks = chunks[:get_settings().rag_top_k]
+                logger.info(
+                    "RAG shared fallback: role=%s query=%r primary=%d shared=%d",
+                    self.agent_role, query[:60], len(chunks) - len(shared_chunks), len(shared_chunks),
+                )
+
         if not chunks:
             self.events.track_rag_miss(
                 self.conversation_id, self.actor_id or "", query, self.agent_role,

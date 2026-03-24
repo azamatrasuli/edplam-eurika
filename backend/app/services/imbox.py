@@ -218,10 +218,13 @@ class ImBoxService:
         3. contact_mapping → find_active_lead (dynamic lookup)
         """
         # Source 1: deal_mapping (created by FunnelService)
-        if conversation_id:
-            deal = self.repo.get_deal_mapping(conversation_id)
-            if deal and deal.get("amocrm_lead_id"):
-                return deal["amocrm_lead_id"]
+        if conversation_id and len(conversation_id) > 10:  # valid UUID
+            try:
+                deal = self.repo.get_deal_mapping(conversation_id)
+                if deal and deal.get("amocrm_lead_id"):
+                    return deal["amocrm_lead_id"]
+            except Exception:
+                logger.debug("deal_mapping lookup failed for conv=%s", conversation_id)
 
         # Source 2: chat_mapping.amocrm_lead_id (saved during _ensure_chat_setup)
         mapping = self.repo.get_chat_mapping_details(actor.actor_id)

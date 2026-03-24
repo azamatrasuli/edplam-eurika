@@ -262,7 +262,7 @@ def main() -> None:
     parser.add_argument(
         "--namespace",
         default="sales",
-        choices=["sales", "support"],
+        choices=["sales", "support", "teacher", "shared"],
         help="Namespace for knowledge chunks (default: sales)",
     )
     parser.add_argument(

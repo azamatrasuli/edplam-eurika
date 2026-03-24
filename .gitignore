@@ -38,3 +38,9 @@ build/
 # Metadata
 _metadata.json
 .vercel
+
+# Pipeline outputs (generated, large)
+backend/pipeline_output/
+
+# Webinar videos (too large for git)
+webinars/videos/
