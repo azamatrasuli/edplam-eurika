@@ -247,6 +247,20 @@ export function useConversationList(auth, agentRole = 'sales', { onError } = {})
   // Update sidebar metadata after message send (message count, last user message, timestamp)
   const bumpConversation = useCallback((conversationId, userText) => {
     setConversations((prev) => {
+      const exists = prev.some((c) => c.id === conversationId)
+      if (!exists) {
+        // Race condition: conversation was created after the list was fetched — add it now
+        return [{
+          id: conversationId,
+          title: null,
+          agent_role: agentRole,
+          message_count: 2,
+          last_user_message: userText,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          archived_at: null,
+        }, ...prev]
+      }
       const updated = prev.map((c) => {
         if (c.id !== conversationId) return c
         return {
@@ -264,7 +278,7 @@ export function useConversationList(auth, agentRole = 'sales', { onError } = {})
       }
       return updated
     })
-  }, [])
+  }, [agentRole])
 
   return useMemo(() => ({
     conversations,

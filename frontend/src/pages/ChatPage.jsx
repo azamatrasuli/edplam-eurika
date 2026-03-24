@@ -156,6 +156,26 @@ export function ChatPage() {
     }
   }, [chat.conversationId])
 
+  // Ensure current conversation is visible in sidebar (fixes race condition on first load)
+  const addedToSidebarRef = useRef(null)
+  useEffect(() => {
+    if (!chat.conversationId || convList.loading) return
+    if (addedToSidebarRef.current === chat.conversationId) return
+    const exists = convList.conversations.some((c) => c.id === chat.conversationId)
+    if (!exists) {
+      addedToSidebarRef.current = chat.conversationId
+      convList.addConversation({
+        id: chat.conversationId,
+        title: null,
+        agent_role: agentRole,
+        message_count: 0,
+        last_user_message: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+    }
+  }, [chat.conversationId, convList.loading])
+
   const handleSelectConversation = useCallback((convId) => {
     tts.stop()
     chat.switchConversation(convId)
