@@ -179,6 +179,12 @@ class ConversationRepository:
                     )
                     empty_row = cur.fetchone()
                     if empty_row:
+                        # Clear old greeting messages so a fresh greeting is generated
+                        cur.execute(
+                            "DELETE FROM chat_messages WHERE conversation_id = %s",
+                            (empty_row["id"],),
+                        )
+                        conn.commit()
                         return StoredConversation(
                             id=str(empty_row["id"]),
                             actor_id=empty_row["actor_id"],
