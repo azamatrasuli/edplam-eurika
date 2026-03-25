@@ -15,19 +15,37 @@ logger = logging.getLogger("services.support_onboarding")
 
 # --- Templates ----------------------------------------------------------------
 
-ONBOARDING_GREETING = (
-    "Поздравляю с покупкой, {name}! {child_line}"
-    "\n\nЧто дальше:\n"
-    "1. На указанную при оплате почту придёт письмо с логином и паролем для входа в личный кабинет\n"
-    "2. Активируйте личный кабинет\n"
-    "3. Заполните регистрационную форму и загрузите документы (в течение 10 рабочих дней)\n\n"
-    "Если письмо не пришло — проверьте папку «Спам».\n"
-    "Если нужна помощь — напишите мне прямо здесь, я Эврика, ваш менеджер поддержки."
+ONBOARDING_GREETING_TG = (
+    "🎉 <b>{name}, поздравляю с покупкой!</b>\n\n"
+    "{child_line}\n\n"
+    "📋 <b>Что дальше:</b>\n"
+    "1️⃣ На вашу почту уже пришло письмо с логином и паролем\n"
+    "2️⃣ Войдите в личный кабинет: edpalm-exam.online\n"
+    "3️⃣ Заполните регформу и загрузите документы (10 рабочих дней)\n\n"
+    "📩 Не нашли письмо? Проверьте «Спам»\n\n"
+    "Я Эврика — ваш менеджер поддержки. "
+    "Если что-то непонятно, просто напишите мне здесь 💬"
 )
 
-ONBOARDING_CHECK_24H = (
-    "Добрый день, {name}! Прошёл день после покупки — "
-    "удалось войти в личный кабинет? Если есть вопросы — я на связи."
+ONBOARDING_GREETING_CHAT = (
+    "Поздравляю с покупкой, {name}! {child_line}\n\n"
+    "Что дальше:\n"
+    "1. На вашу почту пришло письмо с логином и паролем — войдите в личный кабинет: edpalm-exam.online\n"
+    "2. Заполните регистрационную форму и загрузите документы (в течение 10 рабочих дней)\n\n"
+    "Если письмо не пришло — проверьте папку «Спам».\n"
+    "Я Эврика, ваш менеджер поддержки — если что-то непонятно, пишите мне прямо здесь!"
+)
+
+ONBOARDING_CHECK_TG = (
+    "👋 {name}, добрый день!\n\n"
+    "Прошёл день после покупки — удалось войти в личный кабинет?\n\n"
+    "Если есть вопросы по платформе, документам или регистрации — "
+    "напишите мне, помогу разобраться 🙌"
+)
+
+ONBOARDING_CHECK_CHAT = (
+    "{name}, добрый день! Прошёл день после покупки — "
+    "удалось войти в личный кабинет? Если есть вопросы — пишите, помогу!"
 )
 
 ONBOARDING_ESCALATION = (
@@ -74,7 +92,7 @@ def trigger_support_onboarding(order: dict) -> None:
         return
 
     # 2. Resolve profile data
-    name = order.get("actor_name") or "клиент"
+    full_name = order.get("actor_name") or ""
     product = order.get("product_name") or "обучение"
     child_name: str | None = None
     child_grade: int | None = None
@@ -83,7 +101,7 @@ def trigger_support_onboarding(order: dict) -> None:
     # Try to get richer data from user profile
     profile = repo.get_user_profile(actor_id)
     if profile:
-        name = profile.get("fio") or profile.get("display_name") or name
+        full_name = profile.get("fio") or profile.get("display_name") or full_name
         children = profile.get("children") or []
         if children:
             first_child = children[0] if isinstance(children, list) else {}
@@ -91,23 +109,27 @@ def trigger_support_onboarding(order: dict) -> None:
             child_grade = first_child.get("grade")
         dms_contact_id = profile.get("dms_contact_id")
 
+    # Extract first name from FIO (Иванова Мария Петровна → Мария)
+    name = _extract_first_name(full_name) or "друг"
+
     # Build child line for greeting
-    if child_name and child_grade:
-        child_line = f"{child_name} теперь учится в EdPalm по программе «{product}» ({child_grade} класс)."
-    elif child_name:
-        child_line = f"{child_name} теперь учится в EdPalm по программе «{product}»."
+    child_first = _extract_first_name(child_name) if child_name else None
+    if child_first and child_grade:
+        child_line = f"{child_first} теперь учится в EdPalm по программе «{product}» ({child_grade} класс) 🎓"
+    elif child_first:
+        child_line = f"{child_first} теперь учится в EdPalm по программе «{product}» 🎓"
     else:
-        child_line = f"Программа «{product}» активирована."
+        child_line = f"Программа «{product}» активирована 🎓"
 
-    greeting_text = ONBOARDING_GREETING.format(name=name, child_line=child_line)
+    greeting_chat = ONBOARDING_GREETING_CHAT.format(name=name, child_line=child_line)
+    greeting_tg = ONBOARDING_GREETING_TG.format(name=name, child_line=child_line)
 
-    # 3. Save greeting as assistant message in the sales conversation
-    # (the client already has this conversation from the payment flow)
+    # 3. Save greeting as assistant message in the sales conversation (plain text for chat)
     if conversation_id:
         repo.save_message(
             conversation_id=conversation_id,
             role="assistant",
-            content=greeting_text,
+            content=greeting_chat,
         )
 
     now = datetime.now(timezone.utc)
@@ -129,8 +151,8 @@ def trigger_support_onboarding(order: dict) -> None:
             onboarding_id, "greeting_sent", greeting_sent_at=now,
         )
 
-    # 5. Send Telegram push
-    _send_telegram(actor_id, greeting_text)
+    # 5. Send Telegram push (HTML formatted)
+    _send_telegram(actor_id, greeting_tg, parse_mode="HTML")
 
     # 6. Schedule follow-up chain (24h + 48h)
     if conversation_id and onboarding_id:
@@ -190,19 +212,21 @@ def process_onboarding_followup(f: dict) -> None:
     """Process a single onboarding follow-up (called from followup.py)."""
     repo = ConversationRepository()
     step = f["step"]
-    name = f.get("actor_name") or "клиент"
+    full_name = f.get("actor_name") or ""
+    name = _extract_first_name(full_name) or "друг"
     now = datetime.now(timezone.utc)
     onboarding_id = f.get("onboarding_id")
     conversation_id = f.get("conversation_id")
 
     if step == 1:
         # 24h check-in: send message + Telegram push
-        text = ONBOARDING_CHECK_24H.format(name=name)
+        chat_text = ONBOARDING_CHECK_CHAT.format(name=name)
+        tg_text = ONBOARDING_CHECK_TG.format(name=name)
 
         if conversation_id:
-            repo.save_message(conversation_id=conversation_id, role="assistant", content=text)
+            repo.save_message(conversation_id=conversation_id, role="assistant", content=chat_text)
 
-        _send_telegram(f.get("actor_id"), text)
+        _send_telegram(f.get("actor_id"), tg_text, parse_mode="HTML")
         repo.update_followup_status(f["id"], "sent", sent_at=now)
 
         if onboarding_id:
@@ -272,7 +296,7 @@ def mark_onboarding_responded(repo: ConversationRepository, conversation_id: str
 
 # --- Telegram -----------------------------------------------------------------
 
-def _send_telegram(actor_id: str | None, text: str) -> None:
+def _send_telegram(actor_id: str | None, text: str, parse_mode: str | None = None) -> None:
     """Send push notification via Telegram bot (telegram users only)."""
     if not actor_id or not actor_id.startswith("telegram:"):
         return
@@ -283,15 +307,39 @@ def _send_telegram(actor_id: str | None, text: str) -> None:
         return
 
     chat_id = actor_id.replace("telegram:", "")
+    payload: dict = {"chat_id": chat_id, "text": text}
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+
+    # Add inline button "Открыть Эврику" → Mini App
+    settings_obj = get_settings()
+    frontend_url = settings_obj.frontend_url or ""
+    if frontend_url:
+        payload["reply_markup"] = {
+            "inline_keyboard": [[
+                {"text": "💬 Открыть Эврику", "web_app": {"url": f"{frontend_url}?role=support"}}
+            ]]
+        }
+
     try:
         httpx.post(
             f"https://api.telegram.org/bot{bot_token}/sendMessage",
-            json={"chat_id": chat_id, "text": text},
+            json=payload,
             timeout=10,
         )
         logger.info("Onboarding Telegram sent to %s", chat_id)
     except Exception:
         logger.exception("Failed to send onboarding Telegram to %s", chat_id)
+
+
+def _extract_first_name(full_name: str | None) -> str | None:
+    """Extract first name from FIO: 'Иванова Мария Петровна' → 'Мария'."""
+    if not full_name:
+        return None
+    parts = full_name.strip().split()
+    if len(parts) >= 2:
+        return parts[1]  # Фамилия Имя Отчество → Имя
+    return parts[0] if parts else None
 
 
 def _escalate_onboarding_no_response(followup: dict) -> None:
