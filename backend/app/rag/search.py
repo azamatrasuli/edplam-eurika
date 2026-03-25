@@ -26,16 +26,34 @@ class KBChunk:
 class KnowledgeSearch:
     def __init__(self) -> None:
         self.settings = get_settings()
-        self.client = OpenAI(api_key=self.settings.openai_api_key) if self.settings.openai_api_key else None
+        from app.services.openai_client import get_openai_client
+        self.client = get_openai_client()
 
     def _embed_query(self, text: str) -> list[float]:
         from app.logging_config import log_external_call
+        from openai import RateLimitError
+        from app.services.openai_client import is_quota_error, switch_to_fallback, get_openai_client
 
         with log_external_call("openai", "embed_query"):
-            response = self.client.embeddings.create(
-                model=self.settings.openai_embedding_model,
-                input=text,
-            )
+            try:
+                response = self.client.embeddings.create(
+                    model=self.settings.openai_embedding_model,
+                    input=text,
+                )
+            except RateLimitError as e:
+                if is_quota_error(e):
+                    switch_to_fallback()
+                    refreshed = get_openai_client()
+                    if refreshed is not self.client:
+                        self.client = refreshed
+                        response = self.client.embeddings.create(
+                            model=self.settings.openai_embedding_model,
+                            input=text,
+                        )
+                    else:
+                        raise
+                else:
+                    raise
         return response.data[0].embedding
 
     def search(

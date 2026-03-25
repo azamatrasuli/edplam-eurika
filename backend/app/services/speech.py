@@ -6,9 +6,10 @@ import logging
 from collections.abc import Iterator
 from io import BytesIO
 
-from openai import OpenAI
+from openai import RateLimitError
 
 from app.config import get_settings
+from app.services.openai_client import get_openai_client, is_quota_error, switch_to_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ _TTS_MAX_CHARS = 4096
 class SpeechService:
     def __init__(self) -> None:
         self.settings = get_settings()
-        self.client = OpenAI(api_key=self.settings.openai_api_key) if self.settings.openai_api_key else None
+        self.client = get_openai_client()
 
     # ---- STT (Whisper) ----
 
@@ -37,11 +38,20 @@ class SpeechService:
             audio_file = BytesIO(audio_bytes)
             audio_file.name = filename
 
-            response = self.client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                language="ru",
-            )
+            try:
+                response = self.client.audio.transcriptions.create(
+                    model="whisper-1", file=audio_file, language="ru",
+                )
+            except RateLimitError as e:
+                if is_quota_error(e):
+                    switch_to_fallback()
+                    self.client = get_openai_client()
+                    audio_file.seek(0)
+                    response = self.client.audio.transcriptions.create(
+                        model="whisper-1", file=audio_file, language="ru",
+                    )
+                else:
+                    raise
             return response.text.strip() if response.text else None
         except Exception:
             logger.error("Whisper transcription failed", exc_info=True)
@@ -66,12 +76,19 @@ class SpeechService:
             text = text[: _TTS_MAX_CHARS - 3] + "..."
 
         try:
-            response = self.client.audio.speech.create(
-                model=model,
-                voice=voice,
-                input=text,
-                response_format="mp3",
-            )
+            try:
+                response = self.client.audio.speech.create(
+                    model=model, voice=voice, input=text, response_format="mp3",
+                )
+            except RateLimitError as e:
+                if is_quota_error(e):
+                    switch_to_fallback()
+                    self.client = get_openai_client()
+                    response = self.client.audio.speech.create(
+                        model=model, voice=voice, input=text, response_format="mp3",
+                    )
+                else:
+                    raise
             return response.content
         except Exception:
             logger.error("TTS synthesis failed", exc_info=True)
@@ -94,12 +111,19 @@ class SpeechService:
             text = text[: _TTS_MAX_CHARS - 3] + "..."
 
         try:
-            response = self.client.audio.speech.create(
-                model=model,
-                voice=voice,
-                input=text,
-                response_format="mp3",
-            )
+            try:
+                response = self.client.audio.speech.create(
+                    model=model, voice=voice, input=text, response_format="mp3",
+                )
+            except RateLimitError as e:
+                if is_quota_error(e):
+                    switch_to_fallback()
+                    self.client = get_openai_client()
+                    response = self.client.audio.speech.create(
+                        model=model, voice=voice, input=text, response_format="mp3",
+                    )
+                else:
+                    raise
             yield from response.iter_bytes(chunk_size=4096)
         except Exception:
             logger.error("TTS streaming synthesis failed", exc_info=True)

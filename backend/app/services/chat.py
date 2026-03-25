@@ -4,7 +4,7 @@ import json
 import logging
 from dataclasses import dataclass
 
-from openai import OpenAI
+
 
 from app.agent.prompt import PROMPT_VERSION
 from app.config import get_settings
@@ -417,17 +417,26 @@ class ChatService:
             dialog_text = f"Предыдущее краткое содержание:\n{cached_summary}\n\nНовые сообщения:\n{dialog_text}"
 
         try:
-            client = OpenAI(api_key=settings.openai_api_key)
-            response = client.chat.completions.create(
+            from app.services.openai_client import get_openai_client, is_quota_error, switch_to_fallback
+            from openai import RateLimitError
+            client = get_openai_client()
+            _sum_kwargs = dict(
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": self._RUNNING_SUMMARY_PROMPT},
                     {"role": "user", "content": dialog_text[:8000]},
                 ],
-                temperature=0,
-                max_tokens=500,
-                timeout=15,
+                temperature=0, max_tokens=500, timeout=15,
             )
+            try:
+                response = client.chat.completions.create(**_sum_kwargs)
+            except RateLimitError as e:
+                if is_quota_error(e):
+                    switch_to_fallback()
+                    client = get_openai_client()
+                    response = client.chat.completions.create(**_sum_kwargs)
+                else:
+                    raise
             summary = response.choices[0].message.content.strip()
         except Exception:
             logger.warning("Running summary generation failed for conv=%s", conversation_id, exc_info=True)

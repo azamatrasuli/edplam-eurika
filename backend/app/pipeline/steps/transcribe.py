@@ -20,7 +20,8 @@ def transcribe_audio(wav_path: Path, output_dir: Path, api_key: str) -> str:
         logger.info("transcript_raw.txt already exists, skipping transcription")
         return transcript_path.read_text(encoding="utf-8")
 
-    client = OpenAI(api_key=api_key, max_retries=5, timeout=300.0)
+    from app.services.openai_client import get_openai_client
+    client = get_openai_client() or OpenAI(api_key=api_key, max_retries=5, timeout=300.0)
     chunks = split_audio(wav_path, output_dir)
 
     parts: list[str] = []

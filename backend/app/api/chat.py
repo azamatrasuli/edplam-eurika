@@ -305,6 +305,15 @@ _TOOL_LABELS = {
         "Регистрирую обращение для менеджера...", "Оформляю ваш тикет...",
         "Формирую карточку обращения...", "Подготавливаю карточку тикета...",
     ],
+    "collect_nps": [
+        "Сохраняю вашу оценку...", "Записываю оценку...", "Фиксирую вашу оценку...",
+        "Принимаю оценку...", "Сохраняю отзыв...", "Фиксирую обратную связь...",
+        "Записываю ваш отзыв...", "Принимаю вашу оценку...", "Сохраняю в систему...",
+    ],
+    "tag_conversation": [
+        "Помечаю диалог...", "Устанавливаю теги...", "Фиксирую категорию...",
+        "Категоризирую обращение...", "Помечаю обращение...", "Сохраняю категорию...",
+    ],
 }
 
 _FALLBACK_LABELS = [
@@ -594,6 +603,14 @@ def _make_stream(
     except Exception:
         pass
 
+    # Auto-tag conversation based on incoming message (fire-and-forget, support only)
+    if getattr(actor.agent_role, "value", str(actor.agent_role)) == "support":
+        try:
+            from app.services.tagger import auto_tag_from_message
+            auto_tag_from_message(ctx.conversation.id, user_text)
+        except Exception:
+            pass
+
     meta_payload = {
         "conversation_id": ctx.conversation.id,
         "actor_id": actor.actor_id,
@@ -725,11 +742,10 @@ def _make_stream(
                     row = cur.fetchone()
                     msg_count = row.get("message_count") or 0 if row else 0
                     if row and not row.get("title") and msg_count <= 2:
-                        from openai import OpenAI
-                        from app.config import get_settings
-                        settings = get_settings()
-                        oai = OpenAI(api_key=settings.openai_api_key)
-                        title_resp = oai.chat.completions.create(
+                        from openai import RateLimitError
+                        from app.services.openai_client import get_openai_client, is_quota_error, switch_to_fallback
+                        oai = get_openai_client()
+                        _title_kwargs = dict(
                             model="gpt-4o-mini",
                             messages=[
                                 {
@@ -743,10 +759,17 @@ def _make_stream(
                                     "content": f"Сообщение пользователя: {user_text[:200]}\nОтвет агента: {answer[:200]}",
                                 },
                             ],
-                            temperature=0.3,
-                            max_tokens=30,
-                            timeout=8,
+                            temperature=0.3, max_tokens=30, timeout=8,
                         )
+                        try:
+                            title_resp = oai.chat.completions.create(**_title_kwargs)
+                        except RateLimitError as e:
+                            if is_quota_error(e):
+                                switch_to_fallback()
+                                oai = get_openai_client()
+                                title_resp = oai.chat.completions.create(**_title_kwargs)
+                            else:
+                                raise
                         auto_title = title_resp.choices[0].message.content.strip()[:60]
                         if auto_title:
                             chat_service.repo.update_conversation_title(ctx.conversation.id, auto_title)

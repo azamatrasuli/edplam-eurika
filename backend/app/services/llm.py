@@ -61,7 +61,8 @@ class LLMService:
 
     def __init__(self) -> None:
         self.settings = get_settings()
-        self.client = OpenAI(api_key=self.settings.openai_api_key) if self.settings.openai_api_key else None
+        from app.services.openai_client import get_openai_client
+        self.client = get_openai_client()
 
     # ---- history builder --------------------------------------------------
 
@@ -381,6 +382,15 @@ class LLMService:
                 )
 
             except RateLimitError as e:
+                # On quota exhaustion, switch to fallback key and retry
+                from app.services.openai_client import is_quota_error, switch_to_fallback, get_openai_client
+                if is_quota_error(e):
+                    switch_to_fallback()  # switch if not already
+                    refreshed = get_openai_client()
+                    if refreshed is not self.client:
+                        self.client = refreshed
+                        continue  # retry same iteration with new key
+
                 rate_limit_retries += 1
                 if rate_limit_retries > max_rate_limit_retries:
                     logger.error("Rate limit: max retries (%d) exceeded", max_rate_limit_retries)
@@ -430,7 +440,8 @@ class LLMService:
         role_hint = "менеджер по продажам" if agent_role == "sales" else "менеджер поддержки"
 
         try:
-            response = self.client.chat.completions.create(
+            from app.services.openai_client import get_openai_client, is_quota_error, switch_to_fallback
+            _sug_kwargs = dict(
                 model="gpt-4o-mini",
                 messages=[
                     {
@@ -449,10 +460,17 @@ class LLMService:
                     {"role": "assistant", "content": assistant_text[:1000]},
                     {"role": "user", "content": "Предложи кнопки быстрых ответов."},
                 ],
-                temperature=0.3,
-                max_tokens=200,
-                timeout=15,
+                temperature=0.3, max_tokens=200, timeout=15,
             )
+            try:
+                response = self.client.chat.completions.create(**_sug_kwargs)
+            except RateLimitError as e:
+                if is_quota_error(e):
+                    switch_to_fallback()
+                    self.client = get_openai_client()
+                    response = self.client.chat.completions.create(**_sug_kwargs)
+                else:
+                    raise
 
             raw = response.choices[0].message.content.strip()
             # Handle markdown code blocks

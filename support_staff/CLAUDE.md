@@ -67,12 +67,8 @@ support_staff/
 | `get_client_profile` | Готов (Sprint 1) | Профиль из DMS: ФИО, тариф, класс, статус, школа |
 | `create_amocrm_ticket` | Готов | Создать обращение в Service pipeline |
 | `escalate_to_manager` | Готов | Передать менеджеру + уведомление в Telegram |
-
-Планируемые (Sprint 4+):
-- `send_telegram_notification` — уведомления клиентам
-- `notify_manager_cs` — алерты менеджерам КС
-- `collect_nps` — оценка 1-5 после закрытия
-- `tag_conversation` — автотегирование (#оплата, #документы, #платформа и т.д.)
+| `collect_nps` | Готов (Sprint 4) | Оценка 1-5 после закрытия обращения → `agent_nps_ratings` |
+| `tag_conversation` | Готов (Sprint 4) | Тегирование диалога (payment, documents, platform, attestation, schedule, onboarding, technical, gia, other) |
 
 ---
 
@@ -94,9 +90,23 @@ support_staff/
 | Система | Описание | Статус |
 |---|---|---|
 | amoCRM | Обращения в Service pipeline `10689990` | Готов |
-| DMS | Профиль клиента: ФИО, тариф, класс, статус, школа | Готов (Sprint 1) |
-| Supabase | PostgreSQL: conversations, chat_messages, knowledge_chunks | Готов (region: ap-southeast-2) |
-| Telegram | Уведомления клиентам + алерты менеджерам КС | Готов |
+| DMS | Профиль клиента: ФИО, тариф, класс, статус, школа; график платежей | Готов |
+| Supabase | PostgreSQL: conversations, chat_messages, knowledge_chunks, agent_notifications, agent_nps_ratings | Готов |
+| Telegram | Уведомления клиентам + алерты менеджерам КС (telegram_sender.py) | Готов |
+
+### Sprint 4: Уведомления (agent_notifications)
+
+| Тип | Триггер | Статус |
+|---|---|---|
+| `payment_reminder` | За 3д / 1д / в день X (DMS график) | Готов |
+| `document_reminder` | День 3 после оплаты | Готов |
+| `alert_nonresponsive` | Молчит 48ч+ | Готов |
+| `classes_reminder` | За 24ч до занятий | STUB (нет API расписания) |
+| `homework_reminder` | За 24ч до сдачи ДЗ | STUB (нет API Moodle) |
+| `enrollment_congrats` | День зачисления | STUB (неясно событие DMS) |
+| `alert_performance_drop` | Посещаемость < 50% | STUB (нет API оценок) |
+
+Scheduler: `process_notifications` (2мин), `scan_payment_reminders` (6ч), `scan_alerts` (30мин)
 
 ---
 
@@ -106,8 +116,8 @@ support_staff/
 |---|---|---|---|
 | 1 | 06.04 – 13.04 | Переключение ролей, DMS профиль, RAG support | Done |
 | 2 | 13.04 – 20.04 | База знаний КС + FAQ (94 чанка, 10 файлов) | Done |
-| 3 | 20.04 – 04.05 | Онбординг + DMS интеграция | In Progress |
-| 4 | 04.05 – 18.05 | Авто-уведомления + алерты | — |
+| 3 | 20.04 – 04.05 | Онбординг + DMS интеграция | Done |
+| 4 | 04.05 – 18.05 | Авто-уведомления + алерты + NPS + теги | Done |
 | 5 | 18.05 – 01.06 | Чек-листы + ГИА | — |
 | 6 | 01.06 – 16.06 | Дашборд + аналитика | — |
 | 7 | 16.06 – 30.06 | Пилот на 10-15% базы | — |

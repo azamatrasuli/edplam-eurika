@@ -1872,3 +1872,130 @@ class ConversationRepository:
                     return [dict(r) for r in rows]
         except (psycopg.Error, OSError):
             return []
+
+    # ---- Notifications (Sprint 4) -------------------------------------------
+
+    def get_active_actors_with_dms(self) -> list[dict]:
+        """Return list of {actor_id, dms_contact_id} for users with verified DMS profile.
+
+        Used by scan_payment_reminders to enumerate clients to check.
+        """
+        if not self._has_db():
+            return []
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return []
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT actor_id, dms_contact_id
+                        FROM agent_user_profiles
+                        WHERE dms_contact_id IS NOT NULL
+                          AND dms_verified = TRUE
+                        """,
+                    )
+                    return [dict(r) for r in cur.fetchall()]
+        except (psycopg.Error, OSError):
+            logger.warning("get_active_actors_with_dms failed", exc_info=True)
+            return []
+
+    def get_active_onboardings_without_document_reminder(self) -> list[dict]:
+        """Return onboardings created 3+ days ago where document_reminder not yet sent.
+
+        Used to schedule document_reminder for clients who haven't uploaded docs.
+        """
+        if not self._has_db():
+            return []
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return []
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT o.id, o.actor_id, o.conversation_id,
+                               o.child_name, o.product_name, o.child_grade
+                        FROM agent_onboarding o
+                        WHERE o.status NOT IN ('escalated', 'completed')
+                          AND o.created_at <= NOW() - INTERVAL '3 days'
+                          AND NOT EXISTS (
+                              SELECT 1 FROM agent_notifications n
+                              WHERE n.actor_id = o.actor_id
+                                AND n.notification_type = 'document_reminder'
+                                AND n.status != 'cancelled'
+                          )
+                        """,
+                    )
+                    return [dict(r) for r in cur.fetchall()]
+        except (psycopg.Error, OSError):
+            logger.warning("get_active_onboardings_without_document_reminder failed", exc_info=True)
+            return []
+
+    # ---- NPS (Sprint 4) ------------------------------------------------------
+
+    def save_nps(
+        self,
+        conversation_id: str,
+        actor_id: str,
+        rating: int,
+        comment: str | None = None,
+        agent_role: str = "support",
+    ) -> str | None:
+        """Save NPS rating. Returns rating ID or None if already exists / error."""
+        if not self._has_db():
+            return None
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return None
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO agent_nps_ratings
+                            (conversation_id, actor_id, rating, comment, agent_role)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (conversation_id) DO NOTHING
+                        RETURNING id
+                        """,
+                        (conversation_id, actor_id, rating, comment, agent_role),
+                    )
+                    row = cur.fetchone()
+                conn.commit()
+            return str(row["id"]) if row else None
+        except (psycopg.Error, OSError):
+            logger.warning("save_nps failed for conv=%s", conversation_id, exc_info=True)
+            return None
+
+    # ---- Tags (Sprint 4) -----------------------------------------------------
+
+    def update_conversation_tags(
+        self, conversation_id: str, tags: list[str],
+    ) -> None:
+        """Append new tags to conversation (idempotent — duplicates removed by array_agg)."""
+        if not self._has_db() or not tags:
+            return
+        # Normalise: lowercase, strip #
+        clean = list({t.strip().lstrip("#").lower() for t in tags if t.strip()})
+        if not clean:
+            return
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        UPDATE conversations
+                        SET tags = (
+                            SELECT array_agg(DISTINCT elem)
+                            FROM unnest(array_cat(tags, %s::TEXT[])) AS elem
+                        ),
+                        updated_at = NOW()
+                        WHERE id = %s
+                        """,
+                        (clean, conversation_id),
+                    )
+                conn.commit()
+        except (psycopg.Error, OSError):
+            logger.warning("update_conversation_tags failed for conv=%s", conversation_id, exc_info=True)

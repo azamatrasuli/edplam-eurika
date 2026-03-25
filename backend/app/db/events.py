@@ -145,3 +145,35 @@ class EventTracker:
             actor_id=actor_id,
             data={"step": step, "payment_order_id": payment_order_id},
         )
+
+    def track_notification_sent(
+        self,
+        notification_type: str,
+        actor_id: str,
+        notification_id: str,
+        conversation_id: str | None = None,
+    ) -> None:
+        """Track outbound client notification (Sprint 4)."""
+        self.track(
+            "notification_sent",
+            conversation_id=conversation_id,
+            actor_id=actor_id,
+            agent_role="support",
+            data={"notification_type": notification_type, "notification_id": notification_id},
+        )
+
+    def track_nps(
+        self,
+        conversation_id: str | None,
+        actor_id: str,
+        rating: int,
+        comment: str | None = None,
+    ) -> None:
+        """Track NPS rating submission (Sprint 4)."""
+        self.track(
+            "nps_collected",
+            conversation_id=conversation_id,
+            actor_id=actor_id,
+            agent_role="support",
+            data={"rating": rating, "has_comment": bool(comment)},
+        )

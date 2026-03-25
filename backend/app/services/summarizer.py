@@ -8,24 +8,20 @@ from __future__ import annotations
 import json
 import logging
 
-from openai import OpenAI
+from openai import RateLimitError
 
 from app.config import get_settings
 from app.db.memory_repository import MemoryRepository
 from app.db.repository import ConversationRepository
 from app.models.chat import ChatMessage
 from app.services.memory import MemoryService
+from app.services.openai_client import get_openai_client, is_quota_error, switch_to_fallback
 
 logger = logging.getLogger("summarizer")
 
-_summarizer_client: OpenAI | None = None
 
-
-def _get_client() -> OpenAI:
-    global _summarizer_client
-    if _summarizer_client is None:
-        _summarizer_client = OpenAI(api_key=get_settings().openai_api_key)
-    return _summarizer_client
+def _get_client():
+    return get_openai_client()
 
 
 SUMMARIZE_PROMPT = """\
@@ -67,10 +63,19 @@ def _format_messages(messages: list[ChatMessage]) -> str:
 def _embed_batch(texts: list[str], settings=None) -> list[list[float]]:
     settings = settings or get_settings()
     client = _get_client()
-    response = client.embeddings.create(
-        model=settings.openai_embedding_model,
-        input=texts,
-    )
+    try:
+        response = client.embeddings.create(
+            model=settings.openai_embedding_model, input=texts,
+        )
+    except RateLimitError as e:
+        if is_quota_error(e):
+            switch_to_fallback()
+            client = _get_client()
+            response = client.embeddings.create(
+                model=settings.openai_embedding_model, input=texts,
+            )
+        else:
+            raise
     return [item.embedding for item in response.data]
 
 
@@ -91,6 +96,19 @@ def _call_summarize_llm(messages: list[ChatMessage], settings=None) -> dict | No
         )
         content = response.choices[0].message.content
         return json.loads(content)
+    except RateLimitError as e:
+        if is_quota_error(e):
+            switch_to_fallback()
+            client = _get_client()
+            response = client.chat.completions.create(
+                model=settings.openai_model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0, max_tokens=1500,
+                response_format={"type": "json_object"},
+            )
+            return json.loads(response.choices[0].message.content)
+        logger.exception("Failed to call summarize LLM")
+        return None
     except Exception:
         logger.exception("Failed to call summarize LLM")
         return None

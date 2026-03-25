@@ -158,7 +158,10 @@ def trigger_support_onboarding(order: dict) -> None:
     if conversation_id and onboarding_id:
         _create_onboarding_chain(repo, conversation_id, actor_id, onboarding_id)
 
-    # 7. Track event
+    # 7. Schedule document_reminder for day 3 (Sprint 4)
+    _schedule_document_reminder(actor_id, onboarding_id, name)
+
+    # 8. Track event
     EventTracker().track(
         "onboarding_started",
         conversation_id=conversation_id,
@@ -330,6 +333,32 @@ def _send_telegram(actor_id: str | None, text: str, parse_mode: str | None = Non
         logger.info("Onboarding Telegram sent to %s", chat_id)
     except Exception:
         logger.exception("Failed to send onboarding Telegram to %s", chat_id)
+
+
+def _schedule_document_reminder(
+    actor_id: str,
+    onboarding_id: str | None,
+    name: str,
+) -> None:
+    """Schedule document_reminder notification for 3 days after onboarding. Sprint 4."""
+    if not onboarding_id:
+        return
+    try:
+        from datetime import timedelta
+        from app.services.notifications import schedule_notification
+
+        fire_at = datetime.now(timezone.utc) + timedelta(days=3)
+        dedup_key = f"document_reminder:{actor_id}:{onboarding_id}"
+        schedule_notification(
+            actor_id=actor_id,
+            notification_type="document_reminder",
+            scheduled_at=fire_at,
+            template_data={"name": name},
+            dedup_key=dedup_key,
+        )
+        logger.info("Document reminder scheduled for actor=%s onboarding=%s", actor_id, onboarding_id)
+    except Exception:
+        logger.warning("Failed to schedule document_reminder for actor=%s", actor_id, exc_info=True)
 
 
 def _extract_first_name(full_name: str | None) -> str | None:

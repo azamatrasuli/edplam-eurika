@@ -46,19 +46,33 @@ _openai_client: OpenAI | None = None
 def _get_openai_client() -> OpenAI:
     global _openai_client
     if _openai_client is None:
-        settings = get_settings()
-        _openai_client = OpenAI(api_key=settings.openai_api_key)
+        from app.services.openai_client import get_openai_client
+        _openai_client = get_openai_client()
     return _openai_client
 
 
 def _embed_query(text: str) -> list[float]:
+    from openai import RateLimitError
+    from app.services.openai_client import is_quota_error, switch_to_fallback, get_openai_client
+    global _openai_client
+
     settings = get_settings()
     client = _get_openai_client()
-    response = client.embeddings.create(
-        model=settings.openai_embedding_model,
-        input=[text],
-    )
-    return response.data[0].embedding
+    try:
+        response = client.embeddings.create(
+            model=settings.openai_embedding_model,
+            input=[text],
+        )
+        return response.data[0].embedding
+    except RateLimitError as e:
+        if is_quota_error(e) and switch_to_fallback():
+            _openai_client = get_openai_client()
+            response = _openai_client.embeddings.create(
+                model=settings.openai_embedding_model,
+                input=[text],
+            )
+            return response.data[0].embedding
+        raise
 
 
 def _score_memory(similarity: float, created_at: datetime | None, fact_type: str, halflife_days: int = 30) -> float:

@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
-import httpx
-
-from app.config import get_settings
 from app.db.events import EventTracker
 from app.db.repository import ConversationRepository
+from app.services.telegram_sender import esc, send_telegram_to_manager
 
 logger = logging.getLogger("auto_escalation")
 
@@ -18,6 +17,7 @@ def process_idle_escalations() -> None:
 
     Runs every 30 minutes via APScheduler. Finds active support conversations
     with no activity for 48+ hours and escalates them with a Telegram notification.
+    Also records alert in agent_notifications for Sprint 6 metrics.
     """
     repo = ConversationRepository()
     tracker = EventTracker()
@@ -47,44 +47,82 @@ def process_idle_escalations() -> None:
                 agent_role="support",
             )
 
-            _notify_auto_escalation(conv, reason)
+            _notify_auto_escalation(conv)
+            _record_nonresponsive_alert(actor_id, conv)
 
             logger.info("Auto-escalated conv=%s actor=%s", conv_id, actor_id)
         except Exception:
             logger.exception("Auto-escalation failed for conv=%s", conv_id)
 
 
-def _notify_auto_escalation(conv: dict, reason: str) -> None:
-    """Send Telegram notification about auto-escalation."""
-    settings = get_settings()
-    chat_id = settings.manager_telegram_chat_id
-    bot_token = settings.telegram_bot_token
+def _notify_auto_escalation(conv: dict) -> None:
+    """Send enriched Telegram alert to manager about idle conversation."""
+    conv_id = str(conv.get("id") or "—")
+    actor_id = conv.get("actor_id") or "—"
+    channel = conv.get("channel") or "—"
+    title = conv.get("title") or "Без заголовка"
 
-    if not chat_id or not bot_token:
-        return
-
-    def esc(t: str) -> str:
-        return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-    title = esc(conv.get("title") or "Без заголовка")
-    actor_id = esc(conv.get("actor_id") or "—")
-    channel = esc(conv.get("channel") or "—")
-    conv_id = esc(str(conv.get("id") or "—"))
+    # Compute hours idle
+    updated_at = conv.get("updated_at")
+    hours_idle = "48+"
+    if updated_at:
+        try:
+            if isinstance(updated_at, datetime):
+                delta = datetime.now(timezone.utc) - updated_at.replace(tzinfo=timezone.utc) if updated_at.tzinfo is None else datetime.now(timezone.utc) - updated_at
+                hours_idle = str(int(delta.total_seconds() // 3600))
+        except Exception:
+            pass
 
     text = (
-        f"<b>⏰ Автоэскалация (поддержка)</b>\n\n"
-        f"<b>Диалог:</b> {title}\n"
-        f"<b>Клиент:</b> {actor_id}\n"
-        f"<b>Канал:</b> {channel}\n"
-        f"<b>Причина:</b> {esc(reason)}\n\n"
-        f"<b>ID:</b> <code>{conv_id}</code>"
+        f"<b>⏰ Клиент не отвечает</b>\n\n"
+        f"<b>Клиент:</b> {esc(actor_id)}\n"
+        f"<b>Диалог:</b> {esc(title)}\n"
+        f"<b>Ожидаем:</b> ответа клиента\n"
+        f"<b>Без ответа:</b> {esc(hours_idle)}ч\n"
+        f"<b>Канал:</b> {esc(channel)}\n"
+        f"<b>ID:</b> <code>{esc(conv_id)}</code>\n\n"
+        f"Рекомендуется связаться лично."
     )
 
+    send_telegram_to_manager(text)
+
+
+def _record_nonresponsive_alert(actor_id: str, conv: dict) -> None:
+    """Record alert in agent_notifications for Sprint 6 metrics tracking."""
     try:
-        httpx.post(
-            f"https://api.telegram.org/bot{bot_token}/sendMessage",
-            json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
-            timeout=10,
+        from datetime import date
+        from app.services.notifications import schedule_notification
+
+        conv_id = str(conv.get("id") or "")
+        dedup_key = f"alert_nonresponsive:{actor_id}:{date.today().isoformat()}"
+
+        # Compute hours idle
+        updated_at = conv.get("updated_at")
+        hours_idle = "48"
+        if updated_at:
+            try:
+                if isinstance(updated_at, datetime):
+                    delta = datetime.now(timezone.utc) - (
+                        updated_at.replace(tzinfo=timezone.utc) if updated_at.tzinfo is None else updated_at
+                    )
+                    hours_idle = str(int(delta.total_seconds() // 3600))
+            except Exception:
+                pass
+
+        schedule_notification(
+            actor_id=actor_id,
+            notification_type="alert_nonresponsive",
+            scheduled_at=datetime.now(timezone.utc),
+            template_data={
+                "name": conv.get("actor_id") or "—",
+                "waiting_for": "ответа клиента",
+                "hours": hours_idle,
+                "product": "",
+                "channel": conv.get("channel") or "—",
+                "conv_id": conv_id,
+            },
+            dedup_key=dedup_key,
+            conversation_id=conv_id or None,
         )
     except Exception:
-        logger.warning("Failed to send auto-escalation notification for conv=%s", conv.get("id"))
+        logger.warning("Failed to record nonresponsive alert in notifications for actor=%s", actor_id, exc_info=True)

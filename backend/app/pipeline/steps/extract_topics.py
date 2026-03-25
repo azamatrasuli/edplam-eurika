@@ -21,7 +21,8 @@ def extract_topics(structured_text: str, output_dir: Path, api_key: str) -> dict
         logger.info("topics.json already exists, skipping")
         return json.loads(topics_path.read_text(encoding="utf-8"))
 
-    client = OpenAI(api_key=api_key)
+    from app.services.openai_client import get_openai_client
+    client = get_openai_client() or OpenAI(api_key=api_key)
 
     logger.info("Extracting topics (%d chars input)", len(structured_text))
     response = client.chat.completions.create(

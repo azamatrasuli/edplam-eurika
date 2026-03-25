@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     app_cors_origins: str = Field(default="http://localhost:5177", alias="APP_CORS_ORIGINS")
 
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
+    openai_api_key_fallback: str | None = Field(default=None, alias="OPENAI_API_KEY_FALLBACK")
     openai_model: str = Field(default="gpt-4o", alias="OPENAI_MODEL")
     openai_embedding_model: str = Field(default="text-embedding-3-small", alias="OPENAI_EMBEDDING_MODEL")
     openai_request_timeout_seconds: int = Field(default=40, alias="OPENAI_REQUEST_TIMEOUT_SECONDS")

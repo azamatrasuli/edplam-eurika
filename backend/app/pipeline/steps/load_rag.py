@@ -92,7 +92,8 @@ def load_to_rag(md_path: Path, namespace: str, api_key: str, embedding_model: st
         logger.warning("No chunks to store")
         return 0
 
-    client = OpenAI(api_key=api_key)
+    from app.services.openai_client import get_openai_client
+    client = get_openai_client() or OpenAI(api_key=api_key)
     texts = [c.content for c in chunks]
     embeddings = embed_texts(texts, client, embedding_model)
     logger.info("Generated %d embeddings", len(embeddings))

@@ -88,6 +88,16 @@ def _format_phone_dms(digits: str) -> str:
     return f"{d[0]} ({d[1:4]}) {d[4:7]}-{d[7:9]}-{d[9:11]}"
 
 
+@dataclass
+class DMSPaymentScheduleItem:
+    """One upcoming payment from the contract schedule."""
+    due_date: str          # ISO date string: "2026-05-10"
+    amount_kopecks: int
+    product_name: str | None = None
+    order_uuid: str | None = None  # existing order UUID if already created
+    payment_url: str | None = None
+
+
 class DMSServiceBase(ABC):
     """Abstract interface for DMS integration."""
 
@@ -119,6 +129,40 @@ class DMSServiceBase(ABC):
     @abstractmethod
     def get_order_status(self, order_uuid: str) -> int | None:
         ...
+
+    def get_payment_schedule(self, contact_id: int) -> list[DMSPaymentScheduleItem]:
+        """Return upcoming payment schedule from the contract.
+
+        Default implementation returns [] — override in RealDMSService when
+        DMS team provides the schedule API endpoint.
+
+        Sprint 4: implemented in RealDMSService, MockDMSService returns test data.
+        """
+        return []
+
+    def get_schedule(self, student_id: int, date: str) -> list[dict]:
+        """Return lessons for a student on a given date (YYYY-MM-DD).
+
+        STUB — DMS schedule API not yet available.
+        Returns [] until DMS team provides the endpoint.
+        """
+        return []
+
+    def get_assignments(self, student_id: int) -> list[dict]:
+        """Return pending homework assignments for a student.
+
+        STUB — DMS/Moodle assignments API not yet available.
+        Returns [] until DMS team provides the endpoint.
+        """
+        return []
+
+    def get_student_grades(self, moodle_id: int, days: int = 14) -> dict | None:
+        """Return attendance and grade summary for the last N days.
+
+        STUB — DMS grades API not yet available.
+        Returns None until DMS team provides the endpoint.
+        """
+        return None
 
 
 class MockDMSService(DMSServiceBase):
@@ -212,6 +256,26 @@ class MockDMSService(DMSServiceBase):
                 if student.student_id == student_id:
                     return student
         return None
+
+    def get_payment_schedule(self, contact_id: int) -> list[DMSPaymentScheduleItem]:
+        """Mock payment schedule: two upcoming payments for test contact 1001."""
+        from datetime import date, timedelta
+        today = date.today()
+        if contact_id == 1001:
+            return [
+                DMSPaymentScheduleItem(
+                    due_date=(today + timedelta(days=3)).isoformat(),
+                    amount_kopecks=5450000,
+                    product_name="Экстернат Классный 7 класс",
+                    payment_url="https://mock-payment.example.com/pay/mock-uuid-1",
+                ),
+                DMSPaymentScheduleItem(
+                    due_date=(today + timedelta(days=30)).isoformat(),
+                    amount_kopecks=5450000,
+                    product_name="Экстернат Классный 7 класс",
+                ),
+            ]
+        return []
 
     def get_students_by_contact(self, contact_id: int) -> list[DMSStudent]:
         for result in self.MOCK_DATA.values():
@@ -556,6 +620,45 @@ class RealDMSService(DMSServiceBase):
         except Exception:
             logger.exception("DMS get_order_status error")
             return None
+
+    def get_payment_schedule(self, contact_id: int) -> list[DMSPaymentScheduleItem]:
+        """Fetch payment schedule (contract graph) for a contact from DMS.
+
+        Calls GET /v1/api/contacts/{contact_id}/payment-schedule
+        Response expected: {"items": [{"dueDate": "2026-05-10", "amount": 54500, "productName": "...", "paymentUrl": "..."}]}
+
+        NOTE: Endpoint name TBD — to be confirmed with DMS team.
+        If endpoint returns 404, falls back to empty list gracefully.
+        """
+        try:
+            resp = self._request("GET", f"/v1/api/contacts/{contact_id}/payment-schedule")
+            if resp is None:
+                return []
+            if resp.status_code == 404:
+                logger.debug("DMS payment-schedule: 404 for contact_id=%d (endpoint may not exist yet)", contact_id)
+                return []
+            if resp.status_code != 200:
+                logger.warning("DMS payment-schedule failed: %d for contact_id=%d", resp.status_code, contact_id)
+                return []
+
+            data = resp.json()
+            items = data.get("items") or data.get("schedule") or []
+            result = []
+            for item in items:
+                due_date = item.get("dueDate") or item.get("due_date") or ""
+                amount = item.get("amount") or item.get("amountKopecks") or 0
+                result.append(DMSPaymentScheduleItem(
+                    due_date=due_date,
+                    amount_kopecks=int(amount),
+                    product_name=item.get("productName") or item.get("product_name"),
+                    order_uuid=item.get("orderUuid") or item.get("order_uuid"),
+                    payment_url=item.get("paymentUrl") or item.get("payment_url"),
+                ))
+            logger.info("DMS: payment schedule for contact_id=%d → %d items", contact_id, len(result))
+            return result
+        except Exception:
+            logger.exception("DMS get_payment_schedule error for contact_id=%d", contact_id)
+            return []
 
 
 class ProductCatalog:

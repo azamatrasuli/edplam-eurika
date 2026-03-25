@@ -20,7 +20,8 @@ def clean_and_structure(raw_transcript: str, output_dir: Path, api_key: str) -> 
         logger.info("structured.md already exists, skipping")
         return structured_path.read_text(encoding="utf-8")
 
-    client = OpenAI(api_key=api_key)
+    from app.services.openai_client import get_openai_client
+    client = get_openai_client() or OpenAI(api_key=api_key)
 
     # Split into small chunks (~4K chars each) so GPT-4o preserves maximum detail.
     # Smaller chunks = less compression = more content preserved.

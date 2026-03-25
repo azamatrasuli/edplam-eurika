@@ -379,6 +379,52 @@ SUPPORT_TOOL_DEFINITIONS: list[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "collect_nps",
+            "description": (
+                "Сохранить оценку клиента (1-5) после закрытия обращения. "
+                "Вызывай когда клиент поставил оценку в ответ на NPS-вопрос."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "rating": {
+                        "type": "integer",
+                        "description": "Оценка от 1 до 5",
+                    },
+                    "comment": {
+                        "type": "string",
+                        "description": "Комментарий клиента (если есть)",
+                    },
+                },
+                "required": ["rating"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "tag_conversation",
+            "description": (
+                "Пометить диалог тегами. Вызывай в конце обращения (1-2 тега). "
+                "Допустимые теги: payment, documents, platform, attestation, schedule, "
+                "onboarding, technical, gia, other."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Список тегов из допустимого набора",
+                    },
+                },
+                "required": ["tags"],
+            },
+        },
+    },
 ]
 
 
@@ -878,7 +924,7 @@ class ToolExecutor:
             if not contact_id:
                 tg_id = self._extract_telegram_id()
                 contact, _ = self.crm.find_or_create_contact(
-                    telegram_id=tg_id, name="Клиент (эскалация)",
+                    phone=None, telegram_id=tg_id, name="Клиент (эскалация)",
                 )
                 if contact:
                     contact_id = contact.id
@@ -1366,3 +1412,26 @@ class ToolExecutor:
                 "issue": issue,
             }, ensure_ascii=False),
         )
+
+    # ---- Sprint 4: NPS + Tagging -----------------------------------------------
+
+    def _tool_collect_nps(self, rating: int, comment: str | None = None) -> ToolResult:
+        """Save NPS rating (1-5) after conversation closure."""
+        from app.services.nps import save_nps
+        result_msg = save_nps(
+            conversation_id=self.conversation_id or "",
+            actor_id=self.actor_id or "",
+            rating=rating,
+            comment=comment,
+            agent_role=self.agent_role,
+        )
+        return ToolResult(name="collect_nps", result=result_msg)
+
+    def _tool_tag_conversation(self, tags: list[str]) -> ToolResult:
+        """Apply LLM-chosen tags to conversation."""
+        from app.services.tagger import tag_conversation
+        result_msg = tag_conversation(
+            conversation_id=self.conversation_id or "",
+            tags=tags,
+        )
+        return ToolResult(name="tag_conversation", result=result_msg)

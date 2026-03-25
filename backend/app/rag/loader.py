@@ -382,7 +382,8 @@ def main() -> None:
     print(f"\nTotal chunks across all files: {len(all_chunks)}")
 
     # Embed
-    client = OpenAI(api_key=settings.openai_api_key)
+    from app.services.openai_client import get_openai_client
+    client = get_openai_client() or OpenAI(api_key=settings.openai_api_key)
     texts = [c.content for c in all_chunks]
     print(f"Embedding {len(texts)} chunks via {settings.openai_embedding_model}...")
     embeddings = embed_texts(texts, client, settings.openai_embedding_model)
