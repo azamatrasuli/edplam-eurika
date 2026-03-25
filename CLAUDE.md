@@ -52,7 +52,7 @@ eurika/
 ├── support_staff/         # Роль: Поддержка
 │   ├── CLAUDE.md          # контекст роли
 │   ├── TZ.md              # техническое задание
-│   └── knowledge_base/    # MD файлы для RAG (namespace: support)
+│   └── knowledge_base/    # 10 MD файлов для RAG (namespace: support, 94 чанка)
 └── teacher_staff/         # Роль: Учитель
     ├── CLAUDE.md          # контекст роли
     ├── TZ.md              # техническое задание

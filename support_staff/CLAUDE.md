@@ -32,8 +32,17 @@
 support_staff/
 ├── CLAUDE.md                         # этот файл
 ├── TZ.md                             # техническое задание
-└── knowledge_base/                   # файлы для RAG (namespace: support)
-    └── 01_support_faq.md             # FAQ: регистрация, документы, справки, аттестация, ГИА
+└── knowledge_base/                   # 10 MD файлов для RAG (namespace: support, 94 чанка)
+    ├── 01_enrollment_so.md           # СО: зачисление, документы, чек-лист
+    ├── 02_enrollment_zo.md           # ЗО: зачисление, документы, аттестация, правила тестов
+    ├── 03_attestation.md             # Аттестация: сроки, подготовка по тарифам, попытки
+    ├── 04_platform_tech.md           # Платформа: навигация + технические проблемы
+    ├── 05_gia_graduates.md           # ГИА: ОГЭ/ЕГЭ, допуск, медали, ИС, дистант
+    ├── 06_onboarding.md              # Онбординг: после оплаты, шаблоны уведомлений
+    ├── 07_escalation.md              # Эскалация: правила, финансы, договор
+    ├── 08_processes.md               # Отчисление, перевод, МЦКО, ИП, справки
+    ├── 09_faq.md                     # Частые вопросы-ответы (~15 тем)
+    └── 10_contacts.md                # Контакты всех отделений, ссылки
 ```
 
 ---
@@ -54,7 +63,7 @@ support_staff/
 
 | Инструмент | Статус | Описание |
 |---|---|---|
-| `search_knowledge_base` | Готов | RAG-поиск по FAQ поддержки (namespace: support, 44 чанка) |
+| `search_knowledge_base` | Готов | RAG-поиск по базе знаний поддержки (namespace: support, 94 чанка, 10 файлов) |
 | `get_client_profile` | Готов (Sprint 1) | Профиль из DMS: ФИО, тариф, класс, статус, школа |
 | `create_amocrm_ticket` | Готов | Создать обращение в Service pipeline |
 | `escalate_to_manager` | Готов | Передать менеджеру + уведомление в Telegram |
