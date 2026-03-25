@@ -587,6 +587,13 @@ def _make_stream(
     except Exception:
         logger.debug("No follow-ups to cancel for conv=%s", ctx.conversation.id)
 
+    # Mark onboarding as responded if applicable
+    try:
+        from app.services.support_onboarding import mark_onboarding_responded
+        mark_onboarding_responded(chat_service.repo, ctx.conversation.id)
+    except Exception:
+        pass
+
     meta_payload = {
         "conversation_id": ctx.conversation.id,
         "actor_id": actor.actor_id,

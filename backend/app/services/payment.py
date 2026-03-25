@@ -231,6 +231,16 @@ def check_pending_payments() -> None:
                     ),
                 )
 
+                # Trigger support onboarding (fire-and-forget)
+                try:
+                    from app.services.support_onboarding import trigger_support_onboarding
+                    trigger_support_onboarding(order)
+                except Exception:
+                    logger.exception(
+                        "Failed to trigger support onboarding for order=%s",
+                        order["id"],
+                    )
+
             elif status == 4:  # refund
                 repo.update_payment_status(order["id"], "cancelled")
                 logger.info("Payment refunded: order=%s", order["id"])

@@ -1325,12 +1325,15 @@ class ConversationRepository:
                         """
                         SELECT f.id, f.conversation_id, f.actor_id, f.step,
                                f.payment_order_id,
+                               f.chain_type, f.onboarding_id,
                                p.product_name, p.status AS payment_status,
                                p.payment_url,
-                               u.fio AS actor_name
+                               u.fio AS actor_name,
+                               o.child_name, o.child_grade, o.product_name AS onb_product
                         FROM agent_followup_chain f
                         LEFT JOIN agent_payment_orders p ON p.id = f.payment_order_id
                         LEFT JOIN agent_user_profiles u ON u.actor_id = f.actor_id
+                        LEFT JOIN agent_onboarding o ON o.id = f.onboarding_id
                         WHERE f.status = 'pending'
                           AND f.next_fire_at <= NOW()
                         ORDER BY f.next_fire_at
@@ -1422,6 +1425,184 @@ class ConversationRepository:
                     row = cur.fetchone()
                     return row["metadata"] if row and row.get("metadata") else None
         except (psycopg.Error, OSError):
+            return None
+
+    # ---- Support onboarding -----------------------------------------------
+
+    def save_onboarding(
+        self,
+        actor_id: str,
+        payment_order_id: str | None = None,
+        conversation_id: str | None = None,
+        dms_contact_id: int | None = None,
+        product_name: str | None = None,
+        child_name: str | None = None,
+        child_grade: int | None = None,
+        status: str = "pending",
+    ) -> str | None:
+        if not self._has_db():
+            return None
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return None
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO agent_onboarding
+                          (actor_id, payment_order_id, conversation_id,
+                           dms_contact_id, product_name, child_name, child_grade, status)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                        """,
+                        (actor_id, payment_order_id, conversation_id,
+                         dms_contact_id, product_name, child_name, child_grade, status),
+                    )
+                    row = cur.fetchone()
+                conn.commit()
+                return str(row["id"]) if row else None
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to save onboarding", exc_info=True)
+            return None
+
+    def get_onboarding_by_payment(self, payment_order_id: str) -> dict | None:
+        """Check if onboarding already exists for a payment order (dedup guard)."""
+        if not self._has_db():
+            return None
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return None
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT id, status FROM agent_onboarding WHERE payment_order_id = %s LIMIT 1",
+                        (payment_order_id,),
+                    )
+                    row = cur.fetchone()
+                    return dict(row) if row else None
+        except (psycopg.Error, OSError):
+            return None
+
+    def update_onboarding_status(
+        self,
+        onboarding_id: str,
+        status: str,
+        greeting_sent_at: datetime | None = None,
+        followup_sent_at: datetime | None = None,
+        escalated_at: datetime | None = None,
+        client_responded: bool | None = None,
+    ) -> None:
+        if not self._has_db():
+            return
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return
+                with conn.cursor() as cur:
+                    sets = ["status = %s", "updated_at = NOW()"]
+                    params: list = [status]
+                    if greeting_sent_at is not None:
+                        sets.append("greeting_sent_at = %s")
+                        params.append(greeting_sent_at)
+                    if followup_sent_at is not None:
+                        sets.append("followup_sent_at = %s")
+                        params.append(followup_sent_at)
+                    if escalated_at is not None:
+                        sets.append("escalated_at = %s")
+                        params.append(escalated_at)
+                    if client_responded is not None:
+                        sets.append("client_responded = %s")
+                        params.append(client_responded)
+                    params.append(onboarding_id)
+                    cur.execute(
+                        f"UPDATE agent_onboarding SET {', '.join(sets)} WHERE id = %s",
+                        params,
+                    )
+                conn.commit()
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to update onboarding %s", onboarding_id, exc_info=True)
+
+    def check_user_replied_in_conversation(self, conversation_id: str) -> bool:
+        """Check if user sent any message in a conversation."""
+        if not self._has_db():
+            return False
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return False
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT EXISTS(
+                          SELECT 1 FROM chat_messages
+                          WHERE conversation_id = %s AND role = 'user'
+                        ) AS replied
+                        """,
+                        (conversation_id,),
+                    )
+                    row = cur.fetchone()
+                    return bool(row["replied"]) if row else False
+        except (psycopg.Error, OSError):
+            return False
+
+    def get_active_onboarding_for_conversation(self, conversation_id: str) -> dict | None:
+        """Get active onboarding record for a conversation (for response detection)."""
+        if not self._has_db():
+            return None
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return None
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT id, status, client_responded
+                        FROM agent_onboarding
+                        WHERE conversation_id = %s
+                          AND status IN ('greeting_sent', 'followup_sent')
+                        LIMIT 1
+                        """,
+                        (conversation_id,),
+                    )
+                    row = cur.fetchone()
+                    return dict(row) if row else None
+        except (psycopg.Error, OSError):
+            return None
+
+    def save_followup_with_type(
+        self,
+        conversation_id: str,
+        actor_id: str,
+        payment_order_id: str | None,
+        step: int,
+        next_fire_at: datetime,
+        chain_type: str = "payment",
+        onboarding_id: str | None = None,
+    ) -> str | None:
+        """Save followup with chain_type discriminator."""
+        if not self._has_db():
+            return None
+        try:
+            with get_connection() as conn:
+                if conn is None:
+                    return None
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO agent_followup_chain
+                          (conversation_id, actor_id, payment_order_id, step,
+                           next_fire_at, chain_type, onboarding_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                        """,
+                        (conversation_id, actor_id, payment_order_id, step,
+                         next_fire_at, chain_type, onboarding_id),
+                    )
+                    row = cur.fetchone()
+                conn.commit()
+                return str(row["id"]) if row else None
+        except (psycopg.Error, OSError):
+            logger.warning("Failed to save followup with type", exc_info=True)
             return None
 
     # ---- in-memory fallback -----------------------------------------------

@@ -79,6 +79,12 @@ def process_pending_followups() -> None:
 
     for f in due:
         try:
+            # Route onboarding follow-ups to dedicated handler
+            if f.get("chain_type") == "onboarding":
+                from app.services.support_onboarding import process_onboarding_followup
+                process_onboarding_followup(f)
+                continue
+
             # Skip if payment already confirmed
             if f.get("payment_status") == "paid":
                 repo.update_followup_status(f["id"], "cancelled")
