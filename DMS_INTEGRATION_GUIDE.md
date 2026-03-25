@@ -28,7 +28,7 @@ Access token — 10 минут. Refresh — 30 дней (HttpOnly cookie `r_toke
 Если 401 → повторно POST /auth
 ```
 
-**TODO:** Попросить DMS-команду создать сервисные аккаунты (`eureka-agent`, `portal-service`). Пока используем `r.azamat@hss.center`.
+**Сервисный аккаунт:** `eureka-agent@hss.center` (в .env). Fallback: `r.azamat@hss.center`.
 
 ---
 
@@ -201,27 +201,32 @@ get_unpaid_orders       → "Есть задолженности?"
 Файл: `eurika/backend/app/integrations/dms.py`
 
 **Текущее состояние:**
-- `DMSServiceBase` — абстрактный интерфейс
-- `MockDMSService` — 3 тестовых клиента (работает)
-- `RealDMSService` — `search_contact_by_phone()` реализован, `get_student_info()` заглушка
+- `DMSServiceBase` — абстрактный интерфейс (8 абстрактных + 3 стаба)
+- `MockDMSService` — 3 тестовых клиента, полная реализация всех абстрактных методов
+- `RealDMSService` — **все основные методы реализованы** (production-ready)
 - Фабрика `get_dms_service()` — если есть credentials → Real, иначе → Mock
+- `ProductCatalog` — обёртка над `get_products()` с кешем 1ч и fuzzy-поиском по тарифу+классу
 
-**Нужно добавить в `RealDMSService`:**
+**Реализовано в `RealDMSService`:**
 
-| Метод | Спринт | API |
+| Метод | Статус | API |
 |-------|--------|-----|
-| `get_student_info(student_id)` | Seller S4 | `GET /v1/api/student` |
-| `get_student_products(student_id)` | Seller S4 | `POST /v1/api/student/products` |
-| `get_products_catalog(**filters)` | Seller S4 | `GET /v1/api/products` |
-| `check_promo(code)` | Seller S4 | `GET /v1/api/promo/{code}` |
-| `create_order(contact_uuid, positions)` | Seller S4 | `POST /v1/api/orders` |
-| `get_payment_link(order_uuid, pay_type)` | Seller S4 | `POST /v1/api/payment/link` |
-| `get_order_status(order_uuid)` | Seller S4 | `GET /v1/api/orders/{uuid}` |
-| `get_student_enrollments(student_id)` | Support S3 | `GET /v1/api/students/{id}/schools/enrollments` |
-| `get_unpaid_orders()` | Support S3 | `GET /v1/api/payments/unpaid-orders` |
-| `get_student_moodle(student_id)` | Teacher S5 | `GET /v1/api/student/moodle_info` |
+| `search_contact_by_phone(phone)` | **Готов** | `GET /v1/api/contacts/search` (3 формата телефона) |
+| `get_student_info(student_id)` | **Готов** | `GET /v1/api/student?student_id=X` |
+| `get_students_by_contact(contact_id)` | **Готов** | `POST /v1/api/students` |
+| `get_products()` | **Готов** | `GET /v1/api/products` |
+| `create_order(payer, student, product, amount)` | **Готов** | `POST /v1/api/orders` |
+| `get_payment_link(order_uuid, pay_type)` | **Готов** | `POST /v1/api/payment/link` |
+| `get_order_status(order_uuid)` | **Готов** | `GET /v1/api/orders/{uuid}` |
+| `get_payment_schedule(contact_id)` | **Готов** | `GET /v1/api/contacts/{id}/payment-schedule` (graceful 404) |
 
-Все методы — обёртки над httpx. Никаких изменений в DMS.
+**STUB (ожидают API от DMS-команды):**
+
+| Метод | Причина | Возвращает |
+|-------|---------|------------|
+| `get_schedule(student_id, date)` | DMS schedule API не предоставлен | `[]` |
+| `get_assignments(student_id)` | DMS/Moodle assignments API не предоставлен | `[]` |
+| `get_student_grades(moodle_id, days)` | DMS grades API не предоставлен | `None` |
 
 ---
 
@@ -245,11 +250,12 @@ get_unpaid_orders       → "Есть задолженности?"
 
 ## 7. Запросы к DMS-команде
 
-| Что | Зачем | Приоритет | К спринту |
-|-----|-------|-----------|-----------|
-| Сервисный аккаунт `eureka-agent` | Продакшн-интеграция агента | Критичный | Seller S4 |
-| Сервисный аккаунт `portal-service` | Продакшн-интеграция портала | Критичный | Portal ЛК |
-| Список всех значений order.status | Корректная обработка в коде | Высокий | Seller S4 |
-| Webhook при смене статуса оплаты | Реактивный follow-up вместо поллинга | Средний | Support S4 |
-| Фильтр заказов по contact_uuid | История заказов конкретного клиента | Средний | Support S3 |
-| Rate limits | Планирование нагрузки при уведомлениях | Средний | Support S4 |
+| Что | Зачем | Приоритет | Статус |
+|-----|-------|-----------|--------|
+| ~~Сервисный аккаунт `eureka-agent`~~ | ~~Продакшн-интеграция агента~~ | ~~Критичный~~ | Решён |
+| Сервисный аккаунт `portal-service` | Продакшн-интеграция портала | Критичный | Ожидает |
+| ~~Список значений order.status~~ | ~~Обработка в коде~~ | ~~Высокий~~ | Решён (0=draft, 1=pending, 2=paid, 4=refund) |
+| Webhook при смене статуса оплаты | Реактивный follow-up вместо поллинга | Средний | Ожидает (пока polling через check_pending_payments) |
+| API расписания занятий | Уведомления classes_reminder | Высокий | Ожидает (STUB в коде) |
+| API оценок/посещаемости | Алерт alert_performance_drop | Средний | Ожидает (STUB в коде) |
+| Rate limits | Планирование нагрузки при уведомлениях | Средний | Ожидает |

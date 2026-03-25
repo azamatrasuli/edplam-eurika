@@ -34,15 +34,16 @@ eurika/
 ├── backend/               # Python FastAPI (общий для всех ролей)
 │   ├── app/
 │   │   ├── main.py
-│   │   ├── api/           # chat.py, onboarding.py
-│   │   ├── agent/         # prompt.py, tools.py
+│   │   ├── api/           # chat.py, conversations.py, dashboard.py, onboarding.py, profile.py, consent.py, renewal.py, telegram.py
+│   │   ├── agent/         # prompt.py (sprint5-v1), tools.py (sales 11 / support 8 / teacher 5)
 │   │   ├── rag/           # search.py, loader.py
-│   │   ├── services/      # chat.py, llm.py, onboarding.py
+│   │   ├── services/      # chat.py, llm.py, onboarding.py, payment.py, memory.py, summarizer.py, notifications.py, scheduler.py, followup.py, funnel.py, nps.py, tagger.py, imbox.py, auto_escalation.py, telegram_sender.py, data_lifecycle.py, support_onboarding.py
 │   │   ├── integrations/  # amocrm.py, amocrm_chat.py, dms.py
-│   │   ├── auth/          # portal.py, telegram.py, external.py
-│   │   ├── db/            # pool.py, repository.py
-│   │   └── models/        # chat.py, onboarding.py
-│   ├── sql/               # 001-006 миграции
+│   │   ├── auth/          # service.py, portal.py, telegram.py, external.py
+│   │   ├── db/            # pool.py, repository.py, dashboard.py, events.py, memory_repository.py, consent_repository.py
+│   │   ├── models/        # chat.py, onboarding.py, profile.py, dashboard.py, errors.py
+│   │   └── pipeline/      # webinar → KB pipeline (CLI: extract_audio → transcribe → topics → clean → markdown → load_rag)
+│   ├── sql/               # 001-020 миграции
 │   ├── requirements.txt
 │   └── .env.example
 ├── seller_staff/          # Роль: Продавец
@@ -104,9 +105,9 @@ eurika/
 | 1 — Основа | 09.03 – 16.03 | Done |
 | 2 — База знаний | 16.03 – 23.03 | Done |
 | 3 — Целевые действия | 23.03 – 03.04 | Done |
-| 4 — Сценарии | 06.04 – 13.04 | Следующий |
-| 5 — Дашборд | 13.04 – 20.04 | — |
-| 6 — Пилот | 20.04 – 30.04 | — |
+| 4 — Сценарии + follow-up | 06.04 – 13.04 | Done |
+| 5 — Дашборд + портал | 13.04 – 20.04 | Done |
+| 6 — Пилот | 20.04 – 30.04 | Следующий |
 
 ### Поддержка (support_staff/TZ.md)
 
@@ -114,9 +115,9 @@ eurika/
 |---|---|---|
 | 1 — Переключение ролей + DMS + RAG | 06.04 – 13.04 | Done |
 | 2 — База знаний КС (94 чанка, 10 файлов) | 13.04 – 20.04 | Done |
-| 3 — Онбординг + DMS | 20.04 – 04.05 | In Progress |
-| 4 — Уведомления | 04.05 – 18.05 | — |
-| 5 — Чек-листы + ГИА | 18.05 – 01.06 | — |
+| 3 — Онбординг + DMS | 20.04 – 04.05 | Done |
+| 4 — Уведомления + NPS + теги | 04.05 – 18.05 | Done |
+| 5 — Чек-листы + ГИА | 18.05 – 01.06 | Следующий |
 | 6 — Аналитика | 01.06 – 16.06 | — |
 | 7 — Пилот | 16.06 – 30.06 | — |
 
@@ -125,7 +126,7 @@ eurika/
 | Спринт | Даты | Статус |
 |---|---|---|
 | 1–4 | Дек 2025 – Апр 2026 | Завершены |
-| 5 — Проактивность | Апр – 12.05 | — |
+| 5 — Проактивность | Апр – 12.05 | Следующий |
 | 6 — Подготовка к аттестациям | 12.05 – 15.06 | — |
 | 7–10 — Генерация материалов | 15.06 – 31.08 | — |
 
@@ -150,8 +151,35 @@ PYTHONPATH=. python -m app.rag.loader --namespace support --dir ../support_staff
 
 ---
 
+## Реализованные компоненты
+
+**Backend (50 эндпоинтов, prompt sprint5-v1):**
+- Chat (SSE streaming, tool execution loop до 5 итераций)
+- Conversations (CRUD, search, archive, pagination)
+- Dashboard (metrics, conversations, escalations, unanswered — API key auth)
+- Profile (CRUD, memory management)
+- Consent (ФЗ-152: grant/revoke/status)
+- Data lifecycle (export JSON, deletion с 14-дневным recovery)
+- Onboarding (DMS verification by phone)
+- Manager mode (connect/handback/approve)
+- Admin (trigger-renewals, check-stale-deals, reload-settings)
+- Telegram webhook
+- amoCRM Chat webhook (amojo)
+- Scheduler (APScheduler: onboarding checks 2мин, payment reminders 6ч, alerts 30мин)
+
+**Frontend (4 страницы):**
+- ChatPage — основной чат (SSE, voice I/O, markdown, rich messages, cold-start UI)
+- DashboardPage — KPI, графики (Recharts), фильтры
+- SupervisorPage — мониторинг диалогов, manager connect
+- ProfilePage — профиль, память, consent, GDPR
+
+---
+
 ## Блокеры
 
-| Блокер | Влияет на |
-|---|---|
-| **Чек-листы от заказчика** — содержание процессов | Поддержка Sprint 5 |
+| Блокер | Влияет на | Статус |
+|---|---|---|
+| ~~Чек-листы от заказчика~~ | ~~Поддержка Sprint 5~~ | Закрыт (всё в KB из файла db) |
+| **Расписание** — автоматизация не завершена | Учитель Sprint 5 | Ожидает |
+| **Аттестационные материалы** — нужны от методистов | Учитель Sprint 6 | Ожидает |
+| **DMS schedule/grades API** — эндпоинты не предоставлены | Уведомления о занятиях, алерты успеваемости | STUB в коде |

@@ -59,10 +59,12 @@ support_staff/
 
 ---
 
-## Инструменты агента
+## Инструменты агента — 8 tools
 
 | Инструмент | Статус | Описание |
 |---|---|---|
+| `save_user_name` | Готов | Сохранить имя клиента при первом упоминании |
+| `check_client_history` | Готов | Проверка CRM + DMS → тип клиента |
 | `search_knowledge_base` | Готов | RAG-поиск по базе знаний поддержки (namespace: support, 94 чанка, 10 файлов) |
 | `get_client_profile` | Готов (Sprint 1) | Профиль из DMS: ФИО, тариф, класс, статус, школа |
 | `create_amocrm_ticket` | Готов | Создать обращение в Service pipeline |
@@ -135,6 +137,8 @@ PYTHONPATH=. python -m app.rag.loader --namespace support --dir ../support_staff
 
 ## Блокеры
 
-| Блокер | Спринт |
-|---|---|
-| **Чек-листы от заказчика** — содержание процессов | Sprint 5 |
+| Блокер | Спринт | Статус |
+|---|---|---|
+| ~~Чек-листы от заказчика~~ | ~~Sprint 5~~ | Закрыт (всё в KB) |
+| **DMS schedule API** — нет эндпоинта расписания | Уведомления classes_reminder | STUB |
+| **DMS grades API** — нет эндпоинта оценок | Алерт alert_performance_drop | STUB |

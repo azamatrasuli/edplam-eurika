@@ -340,6 +340,26 @@ SUPPORT_TOOL_DEFINITIONS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "get_checklist_status",
+            "description": (
+                "Определить на каком шаге чек-листа находится клиент (зачисление на СО/ЗО, "
+                "документы, аттестация). Анализирует данные из системы и возвращает текущий шаг, "
+                "выполненные шаги и следующее действие. "
+                "Вызывай когда клиент спрашивает: «что дальше?», «какой у меня статус?», "
+                "«на каком я шаге?», «когда зачислят?», «я всё загрузил — что теперь?»."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "phone": {"type": "string", "description": "Номер телефона клиента"},
+                },
+                "required": ["phone"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "create_amocrm_ticket",
             "description": (
                 "Создать обращение (тикет) клиента в CRM. Используй для заявок, "
@@ -410,7 +430,7 @@ SUPPORT_TOOL_DEFINITIONS: list[dict] = [
             "description": (
                 "Пометить диалог тегами. Вызывай в конце обращения (1-2 тега). "
                 "Допустимые теги: payment, documents, platform, attestation, schedule, "
-                "onboarding, technical, gia, other."
+                "onboarding, technical, gia, checklist, other."
             ),
             "parameters": {
                 "type": "object",
@@ -1282,6 +1302,101 @@ class ToolExecutor:
         return ToolResult(
             name="get_client_profile",
             result=json.dumps(profile, ensure_ascii=False),
+        )
+
+    def _tool_get_checklist_status(self, phone: str) -> ToolResult:
+        """Derive enrollment checklist status from DMS data — no DB storage needed."""
+        result = self.dms.search_contact_by_phone(phone)
+        if not result:
+            return ToolResult(
+                name="get_checklist_status",
+                result="Клиент не найден по указанному телефону. Попросите уточнить номер.",
+            )
+
+        contact = result.contact
+        contact_name = f"{contact.surname} {contact.name}".strip()
+        lines: list[str] = []
+
+        # Limit students to avoid overloading LLM context
+        students = result.students[:5]
+        if len(result.students) > 5:
+            lines.append(f"Контакт: {contact_name} (показаны 5 из {len(result.students)} учеников)")
+            lines.append("")
+
+        if not result.students:
+            lines.append(f"Контакт: {contact_name}")
+            lines.append("Учеников не найдено в системе.")
+            lines.append("Возможно, оплата ещё не обработана или ученик не зарегистрирован.")
+            lines.append("Следующее действие: уточнить статус оплаты или обратиться к менеджеру.")
+            return ToolResult(name="get_checklist_status", result="\n".join(lines))
+
+        for s in students:
+            is_zo = "заочн" in (s.product_name or "").lower()
+            form_label = "ЗО" if is_zo else "СО"
+
+            # Derive step from DMS fields
+            steps_done: list[str] = []
+            current_step = ""
+            next_action = ""
+            total_steps = 5 if not is_zo else 4
+
+            if s.is_active and s.state and s.state.lower() == "active":
+                # Fully enrolled
+                steps_done = ["Доступ к платформе", "Регформа", "Документы", "Зачисление"]
+                if not is_zo:
+                    steps_done.insert(2, "Уведомление ОСИП")
+                current_step = "Завершён"
+                next_action = "Все шаги выполнены. Можно приступать к обучению."
+            elif s.enrollment_school:
+                # School assigned, waiting for final enrollment
+                steps_done = ["Доступ к платформе", "Регформа", "Документы"]
+                if not is_zo:
+                    steps_done.append("Уведомление ОСИП")
+                current_step = f"Шаг {total_steps} из {total_steps} (Ожидание зачисления)"
+                next_action = (
+                    f"Школа назначена: {s.enrollment_school}. "
+                    "Ожидайте справку о зачислении в ЛК."
+                )
+            elif s.moodle_id:
+                # Has platform access, regform/docs stage
+                steps_done = ["Доступ к платформе"]
+                step_num = 2
+                if is_zo:
+                    current_step = f"Шаг {step_num} из {total_steps} (Регформа и документы)"
+                    next_action = (
+                        "Заполните регистрационную форму из письма. "
+                        "Проверка занимает 1-5 рабочих дней. "
+                        "Если ошибка — придёт письмо с описанием."
+                    )
+                else:
+                    current_step = f"Шаг {step_num} из {total_steps} (Регформа и документы)"
+                    next_action = (
+                        "Заполните регформу из письма (10 дней с момента оплаты). "
+                        "Формат документов: pdf/jpeg/jpg/png, до 2 МБ. "
+                        "Загружайте строго по кнопке из письма."
+                    )
+            else:
+                # No platform access yet
+                current_step = f"Шаг 1 из {total_steps} (Ожидание доступа)"
+                next_action = (
+                    "Письмо с логином и паролем придёт на почту в течение 24 часов "
+                    "(обычно за 1 минуту). Проверьте папку «Спам». "
+                    "Убедитесь, что noreply@hss.center не заблокирован."
+                )
+
+            grade_str = f"{s.grade} класс" if s.grade else "класс не определён"
+            lines.append(f"Чек-лист: Зачисление на {form_label}")
+            lines.append(f"Ученик: {s.fio}, {grade_str}")
+            lines.append(f"Тариф: {s.product_name or 'не определён'}")
+            lines.append(f"Текущий шаг: {current_step}")
+            if steps_done:
+                lines.append("Выполнено: " + ", ".join(f"✓ {st}" for st in steps_done))
+            lines.append(f"Следующее действие: {next_action}")
+            lines.append("")  # blank line between students
+
+        return ToolResult(
+            name="get_checklist_status",
+            result="\n".join(lines).strip(),
         )
 
     def _tool_generate_payment_link(

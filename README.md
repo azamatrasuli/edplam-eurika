@@ -43,7 +43,7 @@ npm run dev                    # http://localhost:5177
 
 ### DB миграции
 
-Применить SQL из `backend/sql/` в Supabase/PostgreSQL (файлы 001–006).
+Применить SQL из `backend/sql/` в Supabase/PostgreSQL (файлы 001–020).
 
 ### Загрузка базы знаний (RAG)
 
