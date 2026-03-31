@@ -70,9 +70,11 @@ class OnboardingService:
         if portal_ctx:
             if not children and portal_ctx.children:
                 children = [{"fio": c.fio, "moodle_id": c.moodle_id} for c in portal_ctx.children]
-            if not req.fio and portal_ctx.fio:
+            # Портал — авторитетный источник ФИО и аватара
+            if portal_ctx.fio:
                 req.fio = portal_ctx.fio
-            if not avatar and portal_ctx.avatar:
+                self.repo.update_profile_display_name(actor.actor_id, portal_ctx.fio)
+            if portal_ctx.avatar:
                 avatar = portal_ctx.avatar
 
         # Save profile

@@ -298,9 +298,9 @@ class ChatService:
         # Check DMS profile for active students
         profile = self.onboarding.check_profile(actor.actor_id)
         has_active_students = False
-        if profile and profile.get("dms_verified"):
-            dms_data = profile.get("dms_data") or {}
-            students = dms_data.get("students", [])
+        if profile and profile.dms_verified:
+            dms_data = profile.dms_data or {}
+            students = dms_data.get("students", []) if isinstance(dms_data, dict) else []
             has_active_students = any(
                 s.get("state") in ("active", None) for s in students
             )
