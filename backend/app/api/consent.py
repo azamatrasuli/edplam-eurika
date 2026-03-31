@@ -55,6 +55,7 @@ def consent_status(req: ProfileRequest, request: Request) -> ConsentStatusRespon
     enrich_ctx(user_id=actor.actor_id)
 
     is_minor = actor.metadata.get("is_minor")
+    minor_age = None
     if is_minor is None:
         minor_age = _compute_age(actor.metadata.get("birth_date"))
         if minor_age is not None and minor_age < 18:
