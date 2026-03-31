@@ -109,11 +109,19 @@ def get_profile(req: ProfileRequest) -> ProfileResponse:
     raw_stats = repo.get_profile_stats(actor.actor_id)
     memory_count = mem_repo.count_user_atoms(actor.actor_id)
 
+    # Fallback: если БД пустая, использовать данные из JWT (ActorContext)
+    meta = actor.metadata or {}
+    p_name   = profile.get("display_name") or actor.display_name
+    p_phone  = profile.get("phone") or actor.phone
+    p_avatar = profile.get("avatar") or meta.get("avatar")
+
+    merged = {**profile, "display_name": p_name, "phone": p_phone, "avatar": p_avatar}
+
     return ProfileResponse(
         actor_id=actor.actor_id,
-        display_name=profile.get("display_name"),
+        display_name=p_name,
         fio=profile.get("fio"),
-        phone=profile.get("phone"),
+        phone=p_phone,
         client_type=profile.get("client_type"),
         user_role=profile.get("user_role"),
         grade=profile.get("grade"),
@@ -125,7 +133,7 @@ def get_profile(req: ProfileRequest) -> ProfileResponse:
             memory_count=memory_count,
             last_active_at=raw_stats.get("last_active_at"),
         ),
-        completeness=_calc_completeness(profile),
+        completeness=_calc_completeness(merged),
     )
 
 

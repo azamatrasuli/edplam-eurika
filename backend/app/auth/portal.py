@@ -44,5 +44,7 @@ class PortalAuth:
                 "raw_claims": {k: v for k, v in payload.items() if k not in {"exp"}},
                 "is_minor": payload.get("is_minor"),
                 "birth_date": payload.get("birth_date"),
+                "user_role": payload.get("user_role"),
+                "avatar": payload.get("avatar"),
             },
         )

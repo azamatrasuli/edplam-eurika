@@ -795,6 +795,60 @@ def _make_stream(
         logger.debug("Suggestion generation failed", exc_info=True)
 
 
+# ---- helpers --------------------------------------------------------------
+
+def _sync_portal_claims_to_profile(actor: "ActorContext") -> None:
+    """Sync JWT claims (name, phone, avatar, role, is_minor) to agent_user_profiles.
+
+    Only fills empty fields — never overwrites manual edits.
+    """
+    try:
+        from app.db.pool import get_connection
+
+        profile = chat_service.repo.get_user_profile(actor.actor_id) or {}
+        meta = actor.metadata or {}
+
+        # Определяем что нужно обновить
+        updates = {}
+        if actor.display_name and not profile.get("display_name"):
+            updates["display_name"] = actor.display_name
+        if actor.phone and not profile.get("phone"):
+            updates["phone"] = actor.phone
+        if meta.get("avatar") and not profile.get("avatar"):
+            updates["avatar"] = meta["avatar"]
+        if meta.get("user_role") and not profile.get("portal_role"):
+            updates["portal_role"] = meta["user_role"]
+        if meta.get("is_minor") is not None and profile.get("is_minor") is None:
+            updates["is_minor"] = meta["is_minor"]
+
+        if not updates:
+            return
+
+        with get_connection() as conn:
+            if not conn:
+                return
+            with conn.cursor() as cur:
+                # UPSERT: создаёт профиль если нет, обновляет только NULL поля
+                set_clauses = ", ".join(
+                    f"{col} = COALESCE(agent_user_profiles.{col}, EXCLUDED.{col})"
+                    for col in updates
+                )
+                cols = ["actor_id"] + list(updates.keys())
+                placeholders = ", ".join(["%s"] * len(cols))
+                cur.execute(
+                    f"""INSERT INTO agent_user_profiles ({', '.join(cols)})
+                        VALUES ({placeholders})
+                        ON CONFLICT (actor_id) DO UPDATE SET {set_clauses}""",
+                    [actor.actor_id] + list(updates.values()),
+                )
+            conn.commit()
+
+        logger.info("Synced portal claims → profile for %s: %s",
+                     actor.actor_id, list(updates.keys()))
+    except Exception:
+        logger.debug("Portal claims sync failed for %s", actor.actor_id, exc_info=True)
+
+
 # ---- endpoints -----------------------------------------------------------
 
 @router.post("/conversations/start", response_model=StartConversationResponse)
@@ -802,6 +856,10 @@ def start_conversation(req: StartConversationRequest) -> StartConversationRespon
     actor = auth_service.resolve(req.auth)
     actor = actor.model_copy(update={"agent_role": req.agent_role})
     enrich_ctx(user_id=actor.actor_id, agent_role=req.agent_role.value)
+
+    # Автосинхронизация JWT claims → profile (портальные пользователи)
+    if actor.display_name or actor.phone:
+        _sync_portal_claims_to_profile(actor)
 
     # Manager mode: load existing conversation without owner check
     is_manager = actor.channel == Channel.manager

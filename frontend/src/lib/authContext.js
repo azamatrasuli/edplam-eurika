@@ -37,11 +37,70 @@ export function getAgentRole() {
   return 'sales'
 }
 
+// --- Mutable auth state for postMessage updates ---
+let _portalToken = null
+let _agentRoleOverride = null
+let _onAuthRevoked = null
+let _onRoleChanged = null
+
+/**
+ * Register callbacks for portal postMessage events.
+ * Called from ChatPage or App on mount.
+ */
+export function registerPortalBridge({ onAuthRevoked, onRoleChanged } = {}) {
+  _onAuthRevoked = onAuthRevoked || null
+  _onRoleChanged = onRoleChanged || null
+}
+
+/**
+ * Get the current portal token (may be updated via postMessage).
+ */
+export function getPortalToken() {
+  return _portalToken
+}
+
+/**
+ * Get role override set by postMessage, or null.
+ */
+export function getAgentRoleOverride() {
+  return _agentRoleOverride
+}
+
+// Listen for postMessage from portal parent (iframe embedding)
+if (typeof window !== 'undefined' && window.parent !== window) {
+  window.addEventListener('message', (event) => {
+    const data = event.data
+    if (!data || typeof data.type !== 'string' || !data.type.startsWith('eurika:')) return
+
+    switch (data.type) {
+      case 'eurika:token-refresh':
+        if (data.payload?.token) {
+          _portalToken = data.payload.token
+        }
+        break
+
+      case 'eurika:auth-revoked':
+        _portalToken = null
+        if (_onAuthRevoked) _onAuthRevoked()
+        break
+
+      case 'eurika:role-change':
+        if (data.payload?.role) {
+          _agentRoleOverride = data.payload.role
+          if (_onRoleChanged) _onRoleChanged(data.payload.role)
+        }
+        break
+    }
+  })
+}
+
 export function buildAuthPayload() {
-  const portalToken = getQueryParam('token')
+  // Use refreshed token if available (from postMessage)
+  const portalToken = _portalToken || getQueryParam('token')
   const externalToken = getQueryParam('t')
 
   if (portalToken) {
+    _portalToken = portalToken // store for future refreshes
     return { portal_token: portalToken }
   }
 
