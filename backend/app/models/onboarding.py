@@ -60,6 +60,9 @@ class UserProfile(BaseModel):
     dms_contact_id: int | None = None
     dms_data: dict[str, Any] | None = None
     verification_status: str | None = "pending"
+    avatar: str | None = None
+    portal_role: int | None = None       # 3=parent, 4=student, 5=guest
+    is_minor: bool | None = None
 
 
 class ProfileCheckRequest(BaseModel):

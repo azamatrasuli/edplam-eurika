@@ -114,6 +114,10 @@ def get_profile(req: ProfileRequest) -> ProfileResponse:
     p_name   = profile.get("display_name") or actor.display_name
     p_phone  = profile.get("phone") or actor.phone
     p_avatar = profile.get("avatar") or meta.get("avatar")
+    p_portal_role = profile.get("portal_role") or (meta.get("user_role") if isinstance(meta.get("user_role"), int) else None)
+    p_is_minor = profile.get("is_minor")
+    if p_is_minor is None:
+        p_is_minor = meta.get("is_minor")
 
     merged = {**profile, "display_name": p_name, "phone": p_phone, "avatar": p_avatar}
 
@@ -127,6 +131,9 @@ def get_profile(req: ProfileRequest) -> ProfileResponse:
         grade=profile.get("grade"),
         children=children,
         dms_verified=profile.get("dms_verified", False),
+        avatar=p_avatar,
+        portal_role=p_portal_role,
+        is_minor=p_is_minor,
         memories=memories,
         stats=ProfileStats(
             conversation_count=raw_stats["conversation_count"],

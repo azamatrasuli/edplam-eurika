@@ -37,14 +37,19 @@ function ProfileTab({ profile, memories, onRemoveMemory, onUpdateName }) {
 
   const name = profile?.display_name || profile?.fio
   const completeness = Math.round((profile?.completeness || 0) * 100)
+  const portalRoleLabel = { 3: 'Родитель', 4: 'Ученик', 5: 'Гость' }[profile?.portal_role] || null
 
   return (
     <div className="flex flex-col gap-4">
       {/* Avatar + Name */}
       <div className="flex items-center gap-3">
-        <div className="w-14 h-14 rounded-full bg-brand/15 flex items-center justify-center text-[22px] font-semibold text-brand shrink-0">
-          {name ? name[0].toUpperCase() : '?'}
-        </div>
+        {profile?.avatar ? (
+          <img src={profile.avatar} alt="" className="w-14 h-14 rounded-full object-cover shrink-0" />
+        ) : (
+          <div className="w-14 h-14 rounded-full bg-brand/15 flex items-center justify-center text-[22px] font-semibold text-brand shrink-0">
+            {name ? name[0].toUpperCase() : '?'}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           {editing ? (
             <div className="flex gap-2">
@@ -64,12 +69,20 @@ function ProfileTab({ profile, memories, onRemoveMemory, onUpdateName }) {
               <button onClick={() => { setNameInput(name || ''); setEditing(true) }} className="text-[12px] text-brand hover:underline shrink-0">Изменить</button>
             </div>
           )}
-          {profile?.phone && (
-            <div className="text-[13px] text-[var(--text-secondary)] mt-0.5">
-              {formatPhone(profile.phone)}
-              {profile.dms_verified && <span className="ml-1.5 text-brand">Подтверждён</span>}
-            </div>
-          )}
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            {profile?.phone && (
+              <span className="text-[13px] text-[var(--text-secondary)]">
+                {formatPhone(profile.phone)}
+                {profile.dms_verified && <span className="ml-1.5 text-brand">Подтверждён</span>}
+              </span>
+            )}
+            {portalRoleLabel && (
+              <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-brand/10 text-brand">{portalRoleLabel}</span>
+            )}
+            {profile?.is_minor === true && (
+              <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700">Несовершеннолетний</span>
+            )}
+          </div>
         </div>
       </div>
 

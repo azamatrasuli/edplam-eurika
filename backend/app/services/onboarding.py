@@ -59,6 +59,12 @@ class OnboardingService:
         # Build children list for storage
         children = [{"fio": s.fio, "grade": s.grade} for s in req.students]
 
+        # Extract portal metadata from JWT claims (avatar не ПДн — URL на портале)
+        meta = actor.metadata or {}
+        portal_role = meta.get("user_role")    # int: 3=parent, 4=student, 5=guest
+        is_minor = meta.get("is_minor")        # bool from JWT
+        avatar = meta.get("avatar")            # portal avatar URL (internal)
+
         # Save profile
         profile_id = self.repo.save_user_profile(
             actor_id=actor.actor_id,
@@ -73,6 +79,9 @@ class OnboardingService:
             dms_contact_id=dms_result.contact.contact_id if dms_result else None,
             dms_data=dms_data.model_dump() if dms_data else None,
             verification_status=status,
+            avatar=avatar,
+            portal_role=portal_role if isinstance(portal_role, int) else None,
+            is_minor=is_minor if isinstance(is_minor, bool) else None,
         )
 
         logger.info("Onboarding result: status=%s profile_id=%s", status, profile_id)
@@ -86,7 +95,9 @@ class OnboardingService:
             dms_data=dms_data,
         )
 
-    def save_profile_from_phone(self, actor_id: str, phone: str) -> bool:
+    def save_profile_from_phone(
+        self, actor_id: str, phone: str, actor_meta: dict | None = None,
+    ) -> bool:
         """Auto-resolve DMS profile by phone and save. Returns True if saved."""
         norm_phone = normalize_phone(phone)
         dms_result = self.dms.search_contact_by_phone(norm_phone)
@@ -99,6 +110,7 @@ class OnboardingService:
         first_grade = dms_result.students[0].grade if dms_result.students else None
         dms_data = self._build_dms_data(dms_result)
 
+        meta = actor_meta or {}
         self.repo.save_user_profile(
             actor_id=actor_id,
             client_type="existing",
@@ -112,6 +124,9 @@ class OnboardingService:
             dms_contact_id=contact.contact_id,
             dms_data=dms_data.model_dump() if dms_data else None,
             verification_status="found",
+            avatar=meta.get("avatar"),
+            portal_role=meta.get("user_role") if isinstance(meta.get("user_role"), int) else None,
+            is_minor=meta.get("is_minor") if isinstance(meta.get("is_minor"), bool) else None,
         )
         logger.info("Auto-saved DMS profile for actor=%s", actor_id)
 
@@ -168,6 +183,19 @@ class OnboardingService:
             parts.append(f"- ФИО: {profile.fio}")
         if profile.grade:
             parts.append(f"- Класс: {profile.grade}")
+
+        # Portal role (из JWT портала, сохранён в БД)
+        portal_role_map = {3: "родитель", 4: "ученик", 5: "гость"}
+        p_role = getattr(profile, "portal_role", None)
+        if p_role and p_role in portal_role_map:
+            parts.append(f"- Роль на портале: {portal_role_map[p_role]}")
+
+        # is_minor — критично для ФЗ-152 (ст. 9 ч. 6)
+        p_minor = getattr(profile, "is_minor", None)
+        if p_minor is True:
+            parts.append("- Несовершеннолетний: да (требуется согласие родителя)")
+        elif p_minor is False:
+            parts.append("- Несовершеннолетний: нет")
 
         if profile.children:
             for child in profile.children:

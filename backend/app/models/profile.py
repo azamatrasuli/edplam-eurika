@@ -61,6 +61,9 @@ class ProfileResponse(BaseModel):
     grade: int | None = None
     children: list[ChildInfo] = Field(default_factory=list)
     dms_verified: bool = False
+    avatar: str | None = None
+    portal_role: int | None = None       # 3=parent, 4=student, 5=guest
+    is_minor: bool | None = None
     memories: list[MemoryItem] = Field(default_factory=list)
     stats: ProfileStats = Field(default_factory=ProfileStats)
     completeness: float = 0.0  # 0.0 to 1.0

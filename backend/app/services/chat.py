@@ -259,7 +259,7 @@ class ChatService:
             try:
                 existing_profile = self.onboarding.check_profile(actor.actor_id)
                 if not existing_profile:
-                    self.onboarding.save_profile_from_phone(actor.actor_id, resolved_phone)
+                    self.onboarding.save_profile_from_phone(actor.actor_id, resolved_phone, actor_meta=actor.metadata)
             except Exception:
                 logger.info("Auto DMS resolve failed for %s", actor.actor_id, exc_info=True)
 
