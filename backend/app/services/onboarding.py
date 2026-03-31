@@ -65,6 +65,16 @@ class OnboardingService:
         is_minor = meta.get("is_minor")        # bool from JWT
         avatar = meta.get("avatar")            # portal avatar URL (internal)
 
+        # Enrich from portal internal API (server-to-server, no PII in URL)
+        portal_ctx = self._fetch_portal_context(actor)
+        if portal_ctx:
+            if not children and portal_ctx.children:
+                children = [{"fio": c.fio, "moodle_id": c.moodle_id} for c in portal_ctx.children]
+            if not req.fio and portal_ctx.fio:
+                req.fio = portal_ctx.fio
+            if not avatar and portal_ctx.avatar:
+                avatar = portal_ctx.avatar
+
         # Save profile
         profile_id = self.repo.save_user_profile(
             actor_id=actor.actor_id,
@@ -199,7 +209,12 @@ class OnboardingService:
 
         if profile.children:
             for child in profile.children:
-                parts.append(f"- Ученик: {child.get('fio', '?')}, класс {child.get('grade', '?')}")
+                child_info = child.get('fio', '?')
+                if child.get('grade'):
+                    child_info += f", класс {child['grade']}"
+                if child.get('moodle_id'):
+                    child_info += f", Moodle #{child['moodle_id']}"
+                parts.append(f"- Ученик: {child_info}")
 
         if profile.dms_verified:
             parts.append("- Верификация DMS: подтверждён")
@@ -212,6 +227,25 @@ class OnboardingService:
             parts.append("- Верификация DMS: не подтверждён")
 
         return "\n".join(parts)
+
+    @staticmethod
+    def _fetch_portal_context(actor: ActorContext):
+        """Fetch user context from portal internal API (server-to-server).
+        Returns PortalUserContext or None. Never blocks onboarding on failure."""
+        if actor.channel.value != "portal":
+            return None
+        # Extract portal user_id from actor_id ("portal:4" → 4)
+        try:
+            portal_uid = int(actor.actor_id.split(":")[1])
+        except (IndexError, ValueError):
+            return None
+        try:
+            from app.integrations.portal import get_portal_client
+            client = get_portal_client()
+            return client.get_user_context(portal_uid)
+        except Exception:
+            logger.debug("Portal context fetch failed", exc_info=True)
+            return None
 
     @staticmethod
     def _build_dms_data(result: DMSSearchResult) -> DMSContactData:
