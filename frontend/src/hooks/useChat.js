@@ -263,6 +263,8 @@ export function useChat(auth, agentRole = 'sales', onboardingComplete = true, { 
     const params = new URLSearchParams()
     if (auth.manager_key) params.set('key', auth.manager_key)
     if (auth.guest_id) params.set('guest_id', auth.guest_id)
+    if (auth.portal_token) params.set('token', auth.portal_token)
+    if (auth.telegram_init_data) params.set('telegram_init_data', auth.telegram_init_data)
 
     const API_BASE = import.meta.env.VITE_API_BASE_URL
       || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'

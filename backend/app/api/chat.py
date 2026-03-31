@@ -1337,6 +1337,17 @@ async def listen_events(conversation_id: str, request: Request):
         except Exception:
             pass
 
+    tg_init = request.query_params.get("telegram_init_data", "")
+    if tg_init and not is_authorized:
+        try:
+            from app.auth.telegram import TelegramAuth
+            actor = TelegramAuth().resolve(tg_init)
+            owner = chat_service.repo.get_conversation_owner(conversation_id)
+            if owner and owner == actor.actor_id:
+                is_authorized = True
+        except Exception:
+            pass
+
     if not is_authorized:
         raise HTTPException(403, "Access denied")
 
