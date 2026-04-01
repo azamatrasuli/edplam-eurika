@@ -27,15 +27,15 @@ export function useConsent(auth) {
     if (!auth || initRef.current) return
     initRef.current = true
 
-    // Fast path: check sessionStorage cache
+    // Fast path: check localStorage cache
     try {
-      const cached = sessionStorage.getItem(CACHE_KEY)
+      const cached = localStorage.getItem(CACHE_KEY)
       if (cached === 'true') {
         setConsentReady(true)
         setConsentChecking(false)
         return
       }
-    } catch { /* sessionStorage not available */ }
+    } catch { /* localStorage not available */ }
 
     // Slow path: check API
     ;(async () => {
@@ -49,7 +49,7 @@ export function useConsent(auth) {
         }
         if (data.all_required_granted) {
           setConsentReady(true)
-          try { sessionStorage.setItem(CACHE_KEY, 'true') } catch {}
+          try { localStorage.setItem(CACHE_KEY, 'true') } catch {}
         } else {
           setConsentNeeded(true)
         }
@@ -73,7 +73,7 @@ export function useConsent(auth) {
       )
       setConsentNeeded(false)
       setConsentReady(true)
-      try { sessionStorage.setItem(CACHE_KEY, 'true') } catch {}
+      try { localStorage.setItem(CACHE_KEY, 'true') } catch {}
     } catch {
       // If grant fails, still let user through to avoid blocking
       setConsentNeeded(false)
