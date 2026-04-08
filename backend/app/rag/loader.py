@@ -330,6 +330,9 @@ def store_chunks(
     If subject_filter is provided, only deletes chunks for that subject within
     the namespace (useful for incremental teacher KB loading by subject).
     """
+    batch_size = 50  # rows per fresh connection
+
+    # Phase 1: delete old data
     with psycopg.connect(database_url) as conn:
         with conn.cursor() as cur:
             if subject_filter:
@@ -339,31 +342,46 @@ def store_chunks(
                 )
             else:
                 cur.execute("DELETE FROM knowledge_chunks WHERE namespace = %s", (namespace,))
-
-            for chunk, emb in zip(chunks, embeddings):
-                meta = {**chunk.metadata, "file_source": chunk.file_source}
-                cur.execute(
-                    """
-                    INSERT INTO knowledge_chunks
-                        (source, section, chunk_index, content, metadata, embedding, namespace,
-                         grade, grade_to, subject, book_title)
-                    VALUES (%s, %s, %s, %s, %s::jsonb, %s::vector, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        chunk.source,
-                        chunk.section,
-                        chunk.chunk_index,
-                        chunk.content,
-                        json.dumps(meta),
-                        str(emb),
-                        namespace,
-                        chunk.grade,
-                        chunk.grade_to,
-                        chunk.subject,
-                        chunk.book_title,
-                    ),
-                )
         conn.commit()
+
+    # Phase 2: insert in small batches, one execute per row, fresh connection per batch
+    import time
+    sql = """
+        INSERT INTO knowledge_chunks
+            (source, section, chunk_index, content, metadata, embedding, namespace,
+             grade, grade_to, subject, book_title)
+        VALUES (%s, %s, %s, %s, %s::jsonb, %s::vector, %s, %s, %s, %s, %s)
+    """
+    stored = 0
+    for batch_start in range(0, len(chunks), batch_size):
+        batch_end = min(batch_start + batch_size, len(chunks))
+        for attempt in range(3):
+            try:
+                conn = psycopg.connect(database_url)
+                try:
+                    with conn.cursor() as cur:
+                        for i in range(batch_start, batch_end):
+                            chunk, emb = chunks[i], embeddings[i]
+                            meta = {**chunk.metadata, "file_source": chunk.file_source}
+                            cur.execute(sql, (
+                                chunk.source, chunk.section, chunk.chunk_index, chunk.content,
+                                json.dumps(meta), str(emb), namespace,
+                                chunk.grade, chunk.grade_to, chunk.subject, chunk.book_title,
+                            ))
+                    conn.commit()
+                finally:
+                    conn.close()
+                stored = batch_end
+                break  # success
+            except (psycopg.OperationalError, OSError) as e:
+                if attempt < 2:
+                    print(f"  Retry {attempt+1} at {batch_start} ({e})")
+                    time.sleep(2 * (attempt + 1))
+                else:
+                    raise
+        if stored % 5000 < batch_size or stored == len(chunks):
+            print(f"  Stored {stored}/{len(chunks)} chunks...")
+
     return len(chunks)
 
 
